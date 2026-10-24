@@ -3,7 +3,7 @@
 A browser-based visual editor that turns CAD parts (STL) into a **MuJoCo** robot model.
 
 1. **Add parts** – import STL files from your CAD, or pick **standard parts** (servos, screws, nuts, washers) from the *Parts library*.
-2. **Assemble like in a CAD program** – click **⚙ Mate parts**, click a hole / face / edge (or a green marker) on the part to move, then on the part it attaches to. It snaps into place; choose *Rigid*, *Revolute*, *Slider* or *Ball*, flip, offset and rotation.
+2. **Assemble like in a CAD program** – click the **link icon (Mate, key M)** in the toolbar, click a hole / face / edge (or a green marker) on the part to move, then on the part it attaches to. It snaps into place; choose *Rigid*, *Revolute*, *Slider* or *Ball*, flip, offset and rotation.
 3. **Define roles and axes** – servo joints, motors, wheels, passive hinges; joint axes are the connector Z axes (or edit them); *Test pose* sliders let you check the motion.
 4. **Copy and mirror** whole sub-trees (e.g. circular array of one leg → hexapod).
 5. **Export** a ZIP with `model.xml` + `meshes/` that loads directly in MuJoCo.
@@ -21,6 +21,15 @@ Run the exported model:
 unzip robot_mujoco.zip
 python -m mujoco.viewer --mjcf=robot/model.xml
 ```
+
+## The interface at a glance
+
+Everything is icon-first; hover an icon for its name and a short explanation.
+
+- **Toolbar:** import (↓), mate (🔗), add box / cylinder, unit of imported STLs · drop to floor, open, save · status chip (✓ / ⚠ n – click for the list of checks), settings (sliders) · **Export**.
+- **Left:** structure tree (icon = role) or the parts library (grid tab). **Drop STL files anywhere** in the 3D view to import them.
+- **3D view:** floating bar with move / rotate, what to move (part + joint, part only, joint frame only) and "take children along".
+- **Inspector (right):** name, **role icons** (floating base, fixed base, link, servo, motor, wheel, slider, hinge, ball), an action bar (copy, paste, duplicate, mirror X/Y/Z, arrays, apply to copies) and collapsible sections – *Placement, Joint, Servo / Drive, Mass & collision, Connectors, Part file, Library part, Copies*. Rarely used numbers sit behind the sliders-icon fold; sections that matter for the selected part open by themselves.
 
 ## What makes the export accurate
 
@@ -46,7 +55,7 @@ An STL is **only a bag of unnamed triangles**: no hole names, no features, no pa
 a ring of triangles. So nothing in the file says "this is the servo hole" – the editor *recognises geometry* instead
 (circular rims → hole/boss centres, planar faces, edges) and stores your connectors as frames on the part.
 
-When you change a part in CAD (say, a longer link), re-export the STL and click **↻ Refresh from STL** on that part
+When you change a part in CAD (say, a longer link), re-export the STL and click the **refresh icon** in that part's *Part file* section
 (in Chromium the editor remembers the file you imported, so it is one click):
 
 1. each connector is re-found on the new mesh – a hole connector matches a hole of the **same radius and direction**,
@@ -62,7 +71,7 @@ STEP files do carry exact cylindrical faces (and sometimes names); importing STE
 
 ## Add a part from a datasheet (headless Claude Code)
 
-In the **Parts library** tab click **✨ Add part from datasheet**, upload the datasheet (PDF, image, text – several files are fine),
+In the **parts library** tab (grid icon, left) click **✨ From datasheet**, upload the datasheet (PDF, image, text – several files are fine),
 optionally **link your own STL** for the shape, pick a category and give hints. The editor starts a **headless Claude Code session**
 (`claude -p`) that reads the datasheet, extracts dimensions, mounting holes, mass, torque/speed and writes a *part spec*;
 the editor validates it and generates the meshes and `part.json`. You then **review** the values (estimates are highlighted),
@@ -80,7 +89,7 @@ the editor validates it and generates the meshes and `part.json`. You then **rev
 
 ## Assembly mates
 
-A *connector* is a frame on a part (green marker: origin + Z = surface normal / axis). In **Mate parts** mode you click on the geometry and the editor snaps to **hole/boss centres**, **face centres**, **vertices** or **edge midpoints** (or an exact point); library parts already carry connectors for their mounting holes and shaft.
+A *connector* is a frame on a part (green marker: origin + Z = surface normal / axis). In **Mate** mode you click on the geometry and the editor snaps to **hole/boss centres**, **face centres**, **vertices** or **edge midpoints** (or an exact point); library parts already carry connectors for their mounting holes and shaft.
 A mate puts the two connectors together face-to-face (Flip aligns the Z axes instead), with optional offset and rotation, moves the part *and everything attached to it*, makes it a child of the target and sets the joint: rigid = welded, revolute = hinge about connector Z, slider = slide along Z, ball. Servo outputs are already hinge joints – mate your links rigidly to the servo's `output_top` marker.
 
 ## Example: Crabsy hexapod

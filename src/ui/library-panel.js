@@ -2,10 +2,13 @@ import { Matrix4 } from 'three';
 import { fetchReader, loadIndex, instantiate } from '../core/library.js';
 import { bbox } from '../core/mesh.js';
 import { poseToMatrix } from '../core/project.js';
+import { h, ib } from './kit.js';
+import { icon } from './icons.js';
 
 const reader = fetchReader(`${import.meta.env.BASE_URL}standard_parts`);
 let index = null, error = '', rerenderFn = null;
 const open = new Set(['Servos']);
+const CAT_ICON = { Servos: 'servo', Fasteners: 'fastener', Motors: 'motor', Sensors: 'chip', Brackets: 'link', Structure: 'box', Other: 'box' };
 
 export async function initLibrary(rerender) {
   rerenderFn = rerender;
@@ -24,33 +27,33 @@ function robotMaxX(project) {
   return mx;
 }
 
-export function renderLibrary({ h, app, onAdded, flash, onDatasheet }) {
-  const box = h('div', {});
-  if (error) return h('div', { class: 'empty' }, error);
-  if (!index) return h('div', { class: 'empty' }, 'Loading library…');
+export function renderLibrary(ctx) {
+  const { app, flash } = ctx;
+  if (error) return h('div', { class: 'empty' }, icon('warning', 26), h('div', {}, error));
+  if (!index) return h('div', { class: 'empty' }, icon('library', 26), h('div', {}, 'loading…'));
   let q = '';
   const list = h('div', {});
   const draw = () => {
     const cats = {};
     for (const e of index) if (!q || `${e.name} ${e.category} ${(e.tags || []).join(' ')}`.toLowerCase().includes(q)) (cats[e.category] ??= []).push(e);
     list.replaceChildren(...Object.entries(cats).map(([cat, items]) => h('details', { open: open.has(cat) || !!q, ontoggle: (ev) => (ev.target.open ? open.add(cat) : open.delete(cat)) },
-      h('summary', {}, `${cat} (${items.length})`),
-      items.map((e) => h('div', { class: 'lib-item', title: `Add ${e.name} to the assembly`, onclick: () => add(e) }, h('span', {}, e.name), h('button', {}, '＋'))))));
+      h('summary', {}, icon(CAT_ICON[cat] ?? 'box', 16), `${cat}`, h('span', { class: 'unit' }, items.length)),
+      items.map((e) => h('div', { class: 'lib-item', 'data-tip': `Add ${e.name}`, onclick: () => add(e) }, icon(CAT_ICON[cat] ?? 'box', 16), h('span', { class: 'nm' }, e.name), plusIcon())))));
   };
+  const plusIcon = () => { const i = icon('plus', 15); i.classList.add('plus'); return i; };
   async function add(entry) {
     try {
       const mx = robotMaxX(app.project);
       const count = new Set(Object.values(app.project.nodes).filter((n) => n.library?.id === entry.id).map((n) => n.library.group)).size;
       const at = new Matrix4().makeTranslation(mx == null ? 0 : mx + 0.06, 0, 0);
       const nodes = await instantiate(app.project, reader, entry, { at, count: count ? count + 1 : 0 });
-      onAdded(nodes);
-      flash(`Added ${entry.name}. Use “Mate parts” to attach it to your robot (green markers = mounting points).`);
+      ctx.onLibraryAdded(nodes);
+      flash(`Added ${entry.name} – use Mate (link icon) to attach it.`);
     } catch (e) { flash(`Could not add ${entry.name}: ${e.message}`); }
   }
-  box.append(
-    h('button', { class: 'primary', style: 'width:100%;margin-bottom:8px', title: 'Let a headless Claude Code session read a datasheet and create the part', onclick: onDatasheet }, '✨ Add part from datasheet'),
-    h('input', { type: 'text', placeholder: 'Search servos, screws, M3…', oninput: (e) => { q = e.target.value.toLowerCase(); draw(); } }),
-    h('div', { class: 'help' }, 'Standard parts live in the standard_parts/ folder of the repo (add your own there).'), list);
+  const box = h('div', {},
+    ib('sparkles', 'Let a headless Claude Code session read a datasheet and create the part', () => ctx.act.openDatasheet(), { primary: true, label: 'From datasheet', act: 'datasheet' }),
+    h('label', { class: 'search' }, icon('search', 15), h('input', { type: 'text', placeholder: 'servo, M3 …', oninput: (e) => { q = e.target.value.toLowerCase(); draw(); } })), list);
   draw();
   return box;
 }

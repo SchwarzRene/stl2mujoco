@@ -1,78 +1,64 @@
-import { Viewport } from './ui/viewport.js';
-import {
-  newProject, addPart, addPrimitive, addNode, removeNode, subtreeIds, children, roots, polarArray, mirrorSubtree,
-  dropToFloor, validate, isDescendant, poseFromEulerDeg, eulerDegFromPose, poseToMatrix,
-  copyToClipboard, pasteClipboard, duplicateSubtree, linearArray, applyToCopies, familyMembers,
-} from './core/project.js';
+// App controller: owns the project state and actions; the UI lives in src/ui/*.
 import { Matrix4 } from 'three';
-import { ROLES, MATERIALS, SERVO_PRESETS, applyRole } from './core/presets.js';
+import { Viewport } from './ui/viewport.js';
+import { newProject, addPart, addPrimitive, addNode, removeNode, dropToFloor, copyToClipboard, pasteClipboard, duplicateSubtree } from './core/project.js';
 import { parseSTL } from './core/stl.js';
-import { nodeInertial } from './core/mjcf.js';
 import { saveProjectZip, loadProjectZip, exportMujocoZip } from './core/io.js';
-import { SERVO_SPECS } from './core/servo-specs.js';
-import { newServoState, deriveServo, applyServo } from './core/servo.js';
-import { reapplyMate, addConnector, applyMate } from './core/mates.js';
-import { Quaternion } from 'three';
+import { addConnector, applyMate } from './core/mates.js';
 import { refreshPart } from './core/refresh.js';
 import { createAssembler } from './ui/assemble.js';
-import { initLibrary, renderLibrary, reloadLibrary } from './ui/library-panel.js';
+import { initLibrary, reloadLibrary } from './ui/library-panel.js';
 import { openDatasheetDialog } from './ui/datasheet-dialog.js';
+import { renderToolbar, unitScale } from './ui/toolbar.js';
+import { renderLeft as paintLeft, renderStart, renderGizmoBar } from './ui/left-panel.js';
+import { renderInspector } from './ui/inspector.js';
+import { h } from './ui/kit.js';
 
-const app = { project: newProject('my_robot'), selected: null, tab: 'part', msg: '', leftTab: 'structure', clip: null, dupOffset: [0, 60, 0], arr: { count: 3, step: [60, 0, 0] } };
 const $ = (s) => document.querySelector(s);
-const deg = (r) => (r * 180) / Math.PI, rad = (d) => (d * Math.PI) / 180;
-const round = (v, n = 3) => +Number(v).toFixed(n);
+const app = {
+  project: newProject('my_robot'), selected: null, leftTab: 'structure', clip: null, importUnit: 'mm', pop: null, refreshReport: null,
+  dupOffset: [0, 60, 0], arr: { count: 3, step: [60, 0, 0] },
+  open: {}, fold: {}, // remembered open/closed state of inspector sections and "advanced" folds
+};
+const HINT = '⟲ drag: orbit   ·   right-drag: pan   ·   wheel: zoom   ·   W move   ·   E rotate   ·   M mate   ·   Del delete';
+const ctx = { app };
 
-function h(tag, props = {}, ...kids) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props || {})) {
-    if (k === 'class') el.className = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else if (v === true) el.setAttribute(k, '');
-    else if (v !== false && v != null) el.setAttribute(k, v);
-  }
-  for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(k));
-  return el;
-}
+const viewport = new Viewport($('#viewport'), { onPick: (id) => select(id), onEdit: () => {}, onEditEnd: () => renderRight() });
+ctx.viewport = viewport;
+const node = () => app.project.nodes[app.selected];
 
-const viewport = new Viewport($('#viewport'), {
-  onPick: (id) => select(id),
-  onEdit: () => {},
-  onEditEnd: () => renderRight(),
-});
-
-const assembler = createAssembler({ app, viewport, el: $('#assemble'), h, flash: (m) => flash(m), refresh: () => { renderLeft(); renderRight(); } });
-function onLibraryAdded(nodes) {
-  app.selected = nodes[0].id; app.leftTab = 'library'; structural(true); viewport.frameAll();
-}
-
-function select(id) { app.selected = id; viewport.select(id); renderLeft(); renderRight(); }
+/* ------------------------------ rendering ------------------------------ */
+const renderLeft = () => { paintLeft(ctx); renderStart(ctx); };
+const renderRight = () => renderInspector(ctx);
+function renderAll() { renderToolbar(ctx); renderLeft(); renderRight(); renderGizmoBar(ctx); }
+let statusTimer = null;
+function changed() { viewport.refresh(); clearTimeout(statusTimer); statusTimer = setTimeout(() => renderToolbar(ctx), 400); }
+function select(id) { app.selected = id; viewport.select(id); renderLeft(); renderRight(); renderGizmoBar(ctx); }
 function structural(keepSel = true) {
   viewport.setProject(app.project);
   if (!keepSel || !app.project.nodes[app.selected]) app.selected = null;
-  viewport.select(app.selected); renderLeft(); renderRight();
+  viewport.select(app.selected); renderAll();
 }
-function changed() { viewport.refresh(); }
-const node = () => app.project.nodes[app.selected];
+function flash(msg) { app.msg = msg; $('#hint').textContent = msg; setTimeout(() => { if (app.msg === msg) $('#hint').textContent = HINT; }, 7000); }
+const download = (name, bytes, type = 'application/zip') => { const a = h('a', { href: URL.createObjectURL(new Blob([bytes], { type })), download: name }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+function pickFiles(accept, multiple, cb) {
+  const i = h('input', { type: 'file', accept, multiple, onchange: () => cb([...i.files]), oncancel: () => cb([]) });
+  i.click();
+}
 
-/* ------------------------------ import ------------------------------ */
-const UNITS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254 };
-let importUnit = 'mm';
-
+/* ------------------------------ actions ------------------------------ */
 async function importFiles(files, handles = []) {
   const p = app.project;
   for (const [fi, f] of files.entries()) {
     try {
       const positions = parseSTL(await f.arrayBuffer());
       const name = f.name.replace(/\.stl$/i, '');
-      const part = addPart(p, { name, positions, unitScale: UNITS[importUnit] });
-      part.handle = handles[fi] ?? null; // lets “Refresh part” re-read the file without a dialog (Chromium)
-      const parent = node()?.id ?? null;
-      const first = Object.keys(p.nodes).length === 0;
-      const frame = parent ? undefined : { pos: [0, 0, 0], quat: [0, 0, 0, 1] };
-      const n = addNode(p, { name, parent, partId: part.id, role: first ? 'base-fixed' : 'link', frame });
+      const part = addPart(p, { name, positions, unitScale: unitScale(app.importUnit) });
+      part.handle = handles[fi] ?? null; // lets “Refresh” re-read the file without a dialog (Chromium)
+      const parent = node()?.id ?? null, first = Object.keys(p.nodes).length === 0;
+      const n = addNode(p, { name, parent, partId: part.id, role: first ? 'base-fixed' : 'link', frame: parent ? undefined : { pos: [0, 0, 0], quat: [0, 0, 0, 1] } });
       app.selected = n.id;
-      if (!part.stats.watertight) flash(`"${name}" is not a clean closed mesh (${part.stats.openEdges} open / ${part.stats.nonManifoldEdges} non-manifold edges) – mass uses it anyway; consider an explicit mass.`);
+      if (!part.stats.watertight) flash(`“${name}” is not a clean closed mesh (${part.stats.openEdges} open / ${part.stats.nonManifoldEdges} non-manifold edges) – consider a measured mass.`);
     } catch (e) { flash(`Could not import ${f.name}: ${e.message}`); }
   }
   structural(true); viewport.frameAll();
@@ -85,7 +71,12 @@ async function importClick() {
       return importFiles(await Promise.all(hs.map((x) => x.getFile())), hs);
     } catch (e) { if (e.name === 'AbortError') return; }
   }
-  pickFiles('.stl', true, importFiles);
+  pickFiles('.stl', true, (fs) => fs.length && importFiles(fs));
+}
+
+async function openProject(f) {
+  if (Object.keys(app.project.nodes).length && !confirm('Replace the current project? Unsaved work will be lost.')) return;
+  try { app.project = await loadProjectZip(await f.arrayBuffer()); app.selected = null; structural(false); viewport.frameAll(); } catch (e) { flash(e.message); }
 }
 
 async function refreshFromFile(partId) {
@@ -98,318 +89,77 @@ async function refreshFromFile(partId) {
     } else file = (await new Promise((res) => pickFiles('.stl', false, res)))[0];
     if (!file) return;
     const rep = refreshPart(app.project, partId, parseSTL(await file.arrayBuffer()));
-    app.refreshReport = rep;
+    app.refreshReport = rep; app.open.file = true;
     const bad = rep.items.filter((i) => i.status === 'unmatched').length;
-    flash(`Refreshed “${part.name}”: ${rep.items.length - bad}/${rep.items.length} connectors found again, ${rep.resnapped.length} mates re-snapped${bad ? `, ${bad} NOT found – check the report` : ''}.`);
+    flash(`Refreshed “${part.name}”: ${rep.items.length - bad}/${rep.items.length} connectors found again, ${rep.resnapped.length} mates re-snapped${bad ? `, ${bad} NOT found` : ''}.`);
     structural(true);
   } catch (e) { flash(`Refresh failed: ${e.message}`); }
 }
 
-function refreshSection(n) {
-  const part = app.project.parts[n.part];
-  if (!part || n.library) return [];
-  const sz = [0, 1, 2].map((a) => ((part.bbox.max[a] - part.bbox.min[a]) * part.unitScale * 1000).toFixed(1));
-  const rep = app.refreshReport?.part === part.name ? app.refreshReport : null;
-  const out = [h('h3', {}, 'Part file'), h('div', { class: 'stat' }, `${part.name} · ${sz.join(' × ')} mm · ${part.stats.triangles.toLocaleString()} triangles`),
-    h('div', { class: 'btns' }, h('button', { class: 'primary', title: 'Reload the changed STL: connectors are found again by hole size/direction and attached parts are re-snapped', onclick: () => refreshFromFile(part.id) }, part.handle ? '↻ Refresh from linked file' : '↻ Refresh from STL…')),
-    h('div', { class: 'help' }, part.handle ? 'Linked to the file you imported – edit it in CAD, re-export, click refresh.' : 'Choose the re-exported STL. Holes keep their offset from the nearest end of the part, so a longer link keeps both hole patterns where they belong.')];
-  if (rep) {
-    out.push(h('div', { class: 'stat' }, `Last refresh: ${rep.items.length} connectors, ${rep.resnapped.length} mates re-snapped`));
-    for (const i of rep.items) out.push(h('div', { class: i.status === 'unmatched' ? 'note' : 'stat' }, `${i.status === 'matched' ? '✔' : i.status === 'predicted' ? '≈' : '✖'} ${i.node} › ${i.connector}${i.movedMm ? ` (moved ${i.movedMm} mm)` : ''}`));
-    for (const e of rep.errors) out.push(h('div', { class: 'note' }, `⚠ ${e}`));
-  }
-  return out;
+function addPrimitiveNode(kind) {
+  const p = app.project, part = addPrimitive(p, kind, kind === 'box' ? [0.05, 0.05, 0.05] : [0.02, 0.05]);
+  const first = !Object.keys(p.nodes).length, parent = node()?.id ?? null;
+  app.selected = addNode(p, { name: part.name, parent, partId: part.id, role: first ? 'base-fixed' : 'link' }).id;
+  structural(true); if (first) viewport.frameAll();
 }
 
-function pickFiles(accept, multiple, cb) {
-  const i = h('input', { type: 'file', accept, multiple, onchange: () => cb([...i.files]), oncancel: () => cb([]) });
-  i.click();
-}
-function download(name, bytes, type = 'application/zip') {
-  const a = h('a', { href: URL.createObjectURL(new Blob([bytes], { type })), download: name });
-  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
-function flash(msg) { app.msg = msg; $('#hint').textContent = msg; setTimeout(() => { if (app.msg === msg) $('#hint').textContent = HINT; }, 7000); }
-const HINT = 'Left-click: select · drag: orbit · right-drag: pan · wheel: zoom · W/E: move/rotate · Del: delete';
-
-/* ------------------------------ toolbar ------------------------------ */
-function renderToolbar() {
-  const t = $('#toolbar'); t.replaceChildren(
-    h('span', { class: 'title' }, 'stl2', h('span', {}, 'mujoco')),
-    h('select', { title: 'Unit of the STL files you import', onchange: (e) => (importUnit = e.target.value) },
-      Object.keys(UNITS).map((u) => h('option', { value: u, selected: u === importUnit }, `STL in ${u}`))),
-    h('button', { class: 'primary', onclick: importClick }, '＋ Import STL parts'),
-    h('button', { class: 'primary', title: 'Attach one part to another like a CAD assembly mate', onclick: () => assembler.start() }, '⚙ Mate parts'),
-    h('button', { onclick: () => { const d = addPrimitive(app.project, 'box', [0.05, 0.05, 0.05]); addPrimitiveNode(d); } }, '＋ Box'),
-    h('button', { onclick: () => { const d = addPrimitive(app.project, 'cylinder', [0.02, 0.05]); addPrimitiveNode(d); } }, '＋ Cylinder'),
-    h('span', { style: 'flex:1' }),
-    h('button', { onclick: () => { const s = dropToFloor(app.project); changed(); renderRight(); flash(`Moved robot ${round(s * 1000, 1)} mm so it rests on the floor.`); } }, 'Drop to floor'),
-    h('button', { onclick: () => pickFiles('.zip', false, async ([f]) => { try { app.project = await loadProjectZip(await f.arrayBuffer()); app.selected = null; structural(false); viewport.frameAll(); } catch (e) { flash(e.message); } }) }, 'Open project'),
-    h('button', { onclick: async () => download(`${app.project.name}.s2m.zip`, await saveProjectZip(app.project)) }, 'Save project'),
-    h('button', { class: 'primary', onclick: doExport }, '⬇ Export MuJoCo'),
-  );
-}
-function addPrimitiveNode(part) {
-  const p = app.project, first = !Object.keys(p.nodes).length, parent = node()?.id ?? null;
-  const n = addNode(p, { name: part.name, parent, partId: part.id, role: first ? 'base-fixed' : 'link' });
-  app.selected = n.id; structural(true);
-}
 async function doExport() {
   try {
     const res = await exportMujocoZip(app.project);
     download(`${app.project.name}_mujoco.zip`, res.data);
     const mass = res.report.reduce((s, r) => s + r.mass, 0);
-    flash(`Exported ${res.report.length} bodies, total mass ${mass.toFixed(3)} kg. Unzip, then: python -m mujoco.viewer --mjcf=<folder>/model.xml`);
-  } catch (e) { flash(e.message.split('\n')[0]); renderRight(); }
+    flash(`Exported ${res.report.length} bodies, ${mass.toFixed(3)} kg. Unzip, then: python -m mujoco.viewer --mjcf=<folder>/model.xml`);
+  } catch (e) { flash(e.message.split('\n')[0]); app.pop = 'status'; renderToolbar(ctx); }
 }
 
-/* ------------------------------ left: tree ------------------------------ */
-function renderLeft() {
-  const L = $('#left'), p = app.project;
-  const items = [];
-  const walk = (n, d) => {
-    const badge = n.actuator ? 'servo' : n.joint.type === 'free' ? 'base' : '';
-    items.push(h('div', { class: 'tree-item' + (n.id === app.selected ? ' sel' : ''), style: `padding-left:${6 + d * 14}px`, onclick: () => select(n.id) },
-      h('span', {}, n.joint.type === 'fixed' ? '▪' : '↻'), h('span', { style: 'flex:1;overflow:hidden;text-overflow:ellipsis' }, n.name),
-      h('span', { class: 'badge ' + badge }, n.joint.type === 'fixed' ? 'fixed' : n.actuator ? `${n.joint.type}·${n.actuator.kind}` : n.joint.type)));
-    for (const c of children(p, n.id)) walk(c, d + 1);
-  };
-  for (const r of roots(p)) walk(r, 0);
-  const tabs = h('div', { class: 'tabs' }, [['structure', 'Structure'], ['library', 'Parts library']].map(([k, t]) => h('button', { class: app.leftTab === k ? 'on' : '', onclick: () => { app.leftTab = k; renderLeft(); } }, t)));
-  if (app.leftTab === 'library') { L.replaceChildren(tabs, renderLibrary({ h, app, onAdded: onLibraryAdded, flash, onDatasheet: () => openDatasheetDialog({ app, h, flash, onAdded: onLibraryAdded, reloadLibrary }) })); return; }
-  L.replaceChildren(
-    tabs,
-    h('h3', {}, 'Robot structure'),
-    ...(items.length ? items : [h('div', { class: 'empty' }, 'Import your STL parts to start.', h('br'), 'The first part becomes the base; select a part and import more to attach them as children.')]),
-    h('h3', {}, 'Project'),
-    field('Name', h('input', { type: 'text', value: p.name, onchange: (e) => { p.name = e.target.value; } })),
-    h('h3', {}, 'Simulation'),
-    field('Timestep (s)', numInput(p.settings.timestep, (v) => (p.settings.timestep = v), 0.0005)),
-    field('Gravity z', numInput(p.settings.gravity[2], (v) => (p.settings.gravity[2] = v), 0.1)),
-    field('Floor', h('input', { type: 'checkbox', checked: p.settings.floor, onchange: (e) => (p.settings.floor = e.target.checked) })),
-    field('Sensors', h('input', { type: 'checkbox', checked: p.settings.sensors, onchange: (e) => (p.settings.sensors = e.target.checked) })),
-    field('IMU on base', h('input', { type: 'checkbox', checked: p.settings.imu, onchange: (e) => (p.settings.imu = e.target.checked) })),
-    field('Max collision tris', numInput(p.settings.collisionTriangles, (v) => (p.settings.collisionTriangles = Math.max(100, v | 0)), 1000)),
-    h('div', { class: 'help' }, 'Visual meshes are exported 1:1. Collision meshes above this triangle count are simplified (MuJoCo uses their convex hull).'),
-  );
-}
-
-/* ------------------------------ right: inspector ------------------------------ */
-const field = (label, ...inputs) => h('div', { class: 'row' }, h('label', {}, label), inputs.length > 1 ? h('div', { style: 'display:flex;gap:4px' }, inputs) : inputs[0]);
-function numInput(value, onset, step = 0.001, { min, max } = {}) {
-  const i = h('input', { type: 'number', value: round(value, 6), step, min, max });
-  i.addEventListener('change', () => { const v = parseFloat(i.value); if (Number.isFinite(v)) { onset(v); changed(); } });
-  return i;
-}
-function vec3Rows(label, get, set, step) {
-  const v = get();
-  return h('div', { class: 'row three' }, h('label', {}, label), v.map((x, k) => numInput(x, (nv) => { const a = get(); a[k] = nv; set(a); }, step)));
-}
-
-function renderRight() {
-  const R = $('#right'), n = node(), p = app.project;
-  const issues = validate(p);
-  const issueEls = issues.length ? issues.map((i) => h('div', { class: 'issue ' + i.level, onclick: () => i.node && select(i.node) }, (i.level === 'error' ? '✖ ' : '⚠ ') + i.msg))
-    : [h('div', { class: 'issue ok' }, '✔ Ready to export')];
-  if (!n) { R.replaceChildren(h('h3', {}, 'Inspector'), h('div', { class: 'empty' }, 'Select a part in the 3D view or the structure list.'), h('h3', {}, 'Checks'), ...issueEls); return; }
-
-  const part = p.parts[n.part];
-  let inertial = null, inertErr = '';
-  try { inertial = nodeInertial(p, n); } catch (e) { inertErr = e.message; }
-
-  const targetBtn = (t, label) => h('button', { class: viewport.target === t ? 'on' : '', onclick: () => { viewport.target = t; viewport.refresh(); renderRight(); } }, label);
-  const modeBtn = (m, label) => h('button', { class: viewport.gizmo.mode === m ? 'on' : '', onclick: () => { viewport.setMode(m); renderRight(); } }, label);
-
-  const descendants = new Set(subtreeIds(p, n.id));
-  const parents = Object.values(p.nodes).filter((x) => !descendants.has(x.id));
-
-  const framePose = n.frame, partPose = n.partPose;
-  const poseRows = (label, pose) => [
-    vec3Rows(`${label} pos mm`, () => pose.pos.map((v) => v * 1000), (a) => { pose.pos = a.map((v) => v / 1000); changed(); }, 0.1),
-    vec3Rows(`${label} rot °`, () => eulerDegFromPose(pose), (a) => { pose.quat = poseFromEulerDeg([0, 0, 0], a).quat; changed(); }, 1),
-  ];
-
-  const j = n.joint, unit = j.type === 'slide' ? 1000 : 180 / Math.PI;
-  const rangeOn = !!j.range;
-  const preview = viewport.preview[n.id] || 0;
-
-  const sec = [
-    h('h3', {}, 'Selected part'),
-    field('Name', h('input', { type: 'text', value: n.name, onchange: (e) => { n.name = e.target.value; renderLeft(); } })),
-    field('Role', h('select', { onchange: (e) => { applyRole(n, e.target.value); structural(true); } },
-      Object.entries(ROLES).map(([k, r]) => h('option', { value: k, selected: k === n.role }, r.label)))),
-    h('div', { class: 'help' }, ROLES[n.role]?.help ?? ''),
-    field('Parent', h('select', { onchange: (e) => { n.parent = e.target.value || null; structural(true); } },
-      h('option', { value: '' }, '(world)'), parents.map((x) => h('option', { value: x.id, selected: x.id === n.parent }, x.name)))),
-    field('Color', h('input', { type: 'color', value: n.color, oninput: (e) => { n.color = e.target.value; changed(); } })),
-
-    h('h3', {}, 'Placement (reference pose, joints at 0)'),
-    h('div', { class: 'btns' }, 'Gizmo:', modeBtn('translate', 'Move'), modeBtn('rotate', 'Rotate')),
-    h('div', { class: 'btns' }, 'Edit:', targetBtn('both', 'Part + joint'), targetBtn('part', 'Part only'), targetBtn('frame', 'Joint frame only')),
-    field('With children', h('input', { type: 'checkbox', checked: viewport.withSubtree, onchange: (e) => (viewport.withSubtree = e.target.checked) })),
-    h('div', { class: 'help' }, '"Joint frame" = origin/orientation of the joint (body frame). Its Z/X/Y axes are shown in the 3D view.'),
-    ...poseRows('Frame', framePose),
-    part ? poseRows('Part', partPose) : null,
-  ];
-
-  sec.push(h('h3', {}, 'Joint'), field('Type', h('select', { onchange: (e) => { j.type = e.target.value; if (j.type === 'fixed') n.actuator = null; structural(true); } },
-    ['fixed', 'hinge', 'slide', 'ball', 'free'].map((t) => h('option', { selected: t === j.type }, t)))));
-  if (j.type === 'hinge' || j.type === 'slide') {
-    sec.push(
-      vec3Rows('Axis (frame)', () => j.axis, (a) => { j.axis = a; changed(); }, 0.1),
-      h('div', { class: 'btns' }, ['X', 'Y', 'Z'].map((a, k) => h('button', { onclick: () => { j.axis = [0, 0, 0]; j.axis[k] = 1; changed(); renderRight(); } }, `Axis ${a}`)), h('button', { onclick: () => { j.axis = j.axis.map((v) => -v); changed(); renderRight(); } }, 'Flip')),
-      field('Limited', h('input', { type: 'checkbox', checked: rangeOn, onchange: (e) => { j.range = e.target.checked ? (j.type === 'slide' ? [-0.02, 0.02] : [-Math.PI / 2, Math.PI / 2]) : null; renderRight(); } })),
-      rangeOn ? h('div', { class: 'row two' }, h('label', {}, j.type === 'slide' ? 'Range mm' : 'Range °'),
-        numInput(j.range[0] * unit, (v) => (j.range[0] = v / unit), 1), numInput(j.range[1] * unit, (v) => (j.range[1] = v / unit), 1)) : null,
-      field('Damping', numInput(j.damping, (v) => (j.damping = v), 0.01)),
-      field('Friction loss', numInput(j.frictionloss, (v) => (j.frictionloss = v), 0.005)),
-      field('Armature', numInput(j.armature, (v) => (j.armature = v), 0.001)),
-      h('div', { class: 'row' }, h('label', {}, 'Test pose'),
-        h('input', { type: 'range', min: rangeOn ? j.range[0] : -Math.PI, max: rangeOn ? j.range[1] : Math.PI, step: 0.01, value: preview,
-          oninput: (e) => { viewport.preview[n.id] = parseFloat(e.target.value); viewport.refresh(); } })),
-      h('div', { class: 'help' }, 'Drag "Test pose" to check the joint moves the way the real robot does. Reset it to 0 to edit placement again.'),
-      h('button', { onclick: () => { viewport.preview = {}; viewport.refresh(); renderRight(); } }, 'Reset all test poses'),
-    );
-  }
-  if (n.actuator) {
-    const a = n.actuator, u = j.type === 'slide' ? 1000 : 180 / Math.PI;
-    sec.push(h('h3', {}, 'Actuator'),
-      field('Kind', h('select', { onchange: (e) => { a.kind = e.target.value; renderRight(); } }, ['position', 'velocity', 'motor'].map((k) => h('option', { selected: k === a.kind }, k)))),
-      a.kind === 'position' ? field('kp', numInput(a.kp, (v) => (a.kp = v), 1)) : null,
-      a.kind !== 'motor' ? field('kv', numInput(a.kv, (v) => (a.kv = v), 0.1)) : field('gear', numInput(a.gear, (v) => (a.gear = v), 0.1)),
-      a.ctrlrange ? h('div', { class: 'row two' }, h('label', {}, a.kind === 'position' ? (j.type === 'slide' ? 'Ctrl mm' : 'Ctrl °') : 'Ctrl range'),
-        numInput(a.ctrlrange[0] * (a.kind === 'position' ? u : 1), (v) => (a.ctrlrange[0] = v / (a.kind === 'position' ? u : 1)), 1),
-        numInput(a.ctrlrange[1] * (a.kind === 'position' ? u : 1), (v) => (a.ctrlrange[1] = v / (a.kind === 'position' ? u : 1)), 1)) : null,
-      field('Max force/torque', numInput(a.forcerange ?? 0, (v) => (a.forcerange = v > 0 ? v : null), 0.1)),
-      h('div', { class: 'help' }, 'Position servo: τ = kp·(ctrl − q) − kv·q̇, clipped to ± max torque (N·m).'),
-    );
-  } else if (['hinge', 'slide'].includes(j.type)) {
-    sec.push(h('button', { onclick: () => { n.actuator = { kind: 'position', kp: 20, kv: 0.6, ctrlrange: j.range ? [...j.range] : [-1.57, 1.57], forcerange: 1, gear: 1 }; renderRight(); } }, '＋ Add actuator'));
-  }
-
-  if (part) {
-    sec.push(h('h3', {}, 'Mass & inertia'),
-      field('Mass from', h('select', { onchange: (e) => { n.mass.mode = e.target.value; renderRight(); } },
-        h('option', { value: 'density', selected: n.mass.mode === 'density' }, 'material density (volume)'), h('option', { value: 'explicit', selected: n.mass.mode === 'explicit' }, 'measured mass (kg)'))),
-      n.mass.mode === 'density'
-        ? [field('Material', h('select', { onchange: (e) => { n.mass.density = MATERIALS[e.target.value]; renderRight(); } },
-            h('option', {}, '— choose —'), Object.keys(MATERIALS).map((k) => h('option', {}, k)))), field('Density kg/m³', numInput(n.mass.density, (v) => { n.mass.density = v; renderRight(); }, 10))]
-        : field('Mass (g)', numInput(n.mass.mass * 1000, (v) => { n.mass.mass = v / 1000; renderRight(); }, 1)),
-      inertial ? h('div', { class: 'stat' }, `Volume ${(inertial.volume * 1e6).toFixed(2)} cm³ · mass ${(inertial.mass * 1000).toFixed(1)} g`, h('br'),
-        `COM (frame, mm): ${inertial.com.map((v) => (v * 1000).toFixed(1)).join(', ')}`, h('br'),
-        `Principal-ish Ixx/Iyy/Izz (kg·mm²): ${inertial.fullinertia.slice(0, 3).map((v) => (v * 1e6).toFixed(1)).join(', ')}`) : h('div', { class: 'stat' }, inertErr),
-      h('div', { class: 'stat' }, `Mesh: ${part.stats.triangles.toLocaleString()} triangles, ${part.stats.watertight ? 'watertight ✔' : part.trusted ? 'library mesh (stacked solids, mass is explicit) ✔' : `NOT clean (${part.stats.openEdges} open / ${part.stats.nonManifoldEdges} non-manifold edges)`}`),
-      field('Collision', h('select', { onchange: (e) => (n.collision = e.target.value) }, h('option', { value: 'mesh', selected: n.collision === 'mesh' }, 'mesh (convex hull)'), h('option', { value: 'none', selected: n.collision === 'none' }, 'none (visual only)'))),
-    );
-  }
-
-  if (n.servo) sec.push(...servoSection(n));
-  sec.push(...refreshSection(n), ...connectorsSection(n), ...infoSection(n));
-  const mm3 = (key, get) => h('div', { class: 'row three' }, h('label', {}, get.label), get.v.map((x, k) => numInput(x, (v) => { get.v[k] = v; }, 5)));
-  const fam = familyMembers(p, n.id);
-  sec.push(h('h3', {}, 'Copy / paste'),
-    h('div', { class: 'btns' },
-      h('button', { title: 'Ctrl+C', onclick: () => doCopy() }, 'Copy'),
-      h('button', { title: 'Ctrl+V', disabled: !app.clip, onclick: () => doPaste(false) }, 'Paste'),
-      h('button', { disabled: !app.clip, title: 'Paste as a child of the selected part', onclick: () => doPaste(true) }, 'Paste as child'),
-      h('button', { title: 'Ctrl+D', onclick: () => doDuplicate() }, 'Duplicate')),
-    mm3('d', { label: 'Offset mm', v: app.dupOffset }),
-    h('div', { class: 'help' }, 'Copies include all children with their joints, servos, masses and connectors. The copy is selected with “With children” on, so you can drag it straight away.'),
-    h('div', { class: 'row two' }, h('label', {}, 'Linear array'), numInput(app.arr.count, (v) => (app.arr.count = Math.max(2, v | 0)), 1), h('button', { onclick: () => { linearArray(p, n.id, { count: app.arr.count, step: app.arr.step.map((v) => v / 1000) }); flash(`Created ${app.arr.count - 1} copies.`); structural(true); } }, 'Create')),
-    mm3('s', { label: 'Step mm', v: app.arr.step }),
-    fam.length ? h('div', { class: 'btns' }, h('button', { class: 'primary', title: 'Copies joint, servo, actuator, mass, collision and colour settings of this part to the matching part in every copy', onclick: () => { const c = applyToCopies(p, n.id); viewport.setProject(p); flash(`Applied settings to ${c} copies.`); renderRight(); } }, `Apply these settings to ${fam.length} copies`)) : null,
-    h('h3', {}, 'Circular array / mirror'),
-    h('div', { class: 'btns' },
-      h('button', { onclick: () => { const c = parseInt(prompt('Total number of copies (including this one) around the world Z axis?', '6')); if (c > 1) { polarArray(p, n.id, { count: c, stepDeg: 360 / c }); structural(true); } } }, 'Circular array (Z)'),
-      ['X', 'Y', 'Z'].map((a, k) => h('button', { onclick: () => { mirrorSubtree(p, n.id, k); structural(true); } }, `Mirror ${a}`))),
-    h('div', { class: 'help' }, 'Mirrored copies get mirrored meshes and flipped hinge axes.'),
-    h('div', { class: 'btns' }, h('button', { class: 'danger', onclick: () => { removeNode(p, n.id); app.selected = null; structural(false); } }, 'Delete part + children')),
-    h('h3', {}, 'Checks'), issueEls);
-  R.replaceChildren(...sec.flat().filter(Boolean));
-}
-
-function doCopy() {
-  if (!node()) return;
-  app.clip = copyToClipboard(app.project, app.selected);
-  flash(`Copied “${app.clip.name}” with all children.`); renderRight();
-}
 function afterPaste(made) {
   viewport.withSubtree = true; // so the copy can be dragged as a whole
   app.selected = made[0].id; structural(true); flash(`Created “${made[0].name}” (${made.length} parts).`);
 }
-function doPaste(asChild) {
-  if (!app.clip) return;
-  const off = new Matrix4().makeTranslation(...app.dupOffset.map((v) => v / 1000));
-  try { afterPaste(pasteClipboard(app.project, app.clip, { parent: asChild ? app.selected : undefined, M: off })); } catch (e) { flash(e.message); }
-}
-function doDuplicate() {
-  if (!node()) return;
-  afterPaste(duplicateSubtree(app.project, app.selected, { offset: app.dupOffset.map((v) => v / 1000) }));
-}
+const off = () => new Matrix4().makeTranslation(...app.dupOffset.map((v) => v / 1000));
+const act = {
+  import: importClick,
+  mate: () => assembler.start(),
+  addPrimitive: addPrimitiveNode,
+  dropFloor: () => { const s = dropToFloor(app.project); changed(); renderRight(); flash(`Moved the robot ${(s * 1000).toFixed(1)} mm so it rests on the floor.`); },
+  open: () => pickFiles('.zip', false, ([f]) => f && openProject(f)),
+  save: async () => download(`${app.project.name}.s2m.zip`, await saveProjectZip(app.project)),
+  export: doExport,
+  copy: () => { if (!node()) return; app.clip = copyToClipboard(app.project, app.selected); flash(`Copied “${app.clip.name}” with all children.`); renderRight(); },
+  paste: (asChild) => { if (!app.clip) return; try { afterPaste(pasteClipboard(app.project, app.clip, { parent: asChild ? app.selected : undefined, M: off() })); } catch (e) { flash(e.message); } },
+  duplicate: () => { if (node()) afterPaste(duplicateSubtree(app.project, app.selected, { offset: app.dupOffset.map((v) => v / 1000) })); },
+  refreshFile: refreshFromFile,
+  openDatasheet: () => openDatasheetDialog({ app, flash, onAdded: onLibraryAdded, reloadLibrary }),
+};
+Object.assign(ctx, { flash, select, structural, changed, act, renderLeft, rerender: renderRight, onLibraryAdded });
+function onLibraryAdded(nodes) { app.selected = nodes[0].id; app.leftTab = 'library'; structural(true); viewport.frameAll(); }
 
-function servoSection(n) {
-  const sv = n.servo, d = deriveServo(sv);
-  const upd = () => { applyServo(n); viewport.refresh(); renderRight(); };
-  const kgf = d.stall_torque / 0.0980665, rpm = (d.noload_speed * 60) / (2 * Math.PI), s60 = Math.PI / 3 / d.noload_speed;
-  return [
-    h('h3', {}, 'Servo model'),
-    field('Model', h('select', { onchange: (e) => { if (e.target.value === 'custom') return; n.servo = newServoState(e.target.value); applyServo(n); viewport.refresh(); renderRight(); } },
-      sv.preset === 'custom' ? h('option', { value: 'custom', selected: true }, `${sv.name} (from datasheet)`) : null,
-      Object.entries(SERVO_SPECS).map(([k, v]) => h('option', { value: k, selected: sv.preset === k }, v.name)))),
-    Object.keys(sv.voltages).length > 1
-      ? field('Supply', h('select', { onchange: (e) => { sv.voltage = e.target.value; upd(); } }, Object.keys(sv.voltages).map((v) => h('option', { value: v, selected: v === sv.voltage }, `${v} V`))))
-      : field('Supply', `${sv.voltage} V`),
-    h('div', { class: 'stat' }, `Stall torque ${d.stall_torque.toFixed(3)} N·m (${kgf.toFixed(1)} kgf·cm)`, h('br'), `No-load speed ${d.noload_speed.toFixed(2)} rad/s (${rpm.toFixed(0)} rpm, ${s60.toFixed(3)} s/60°)`),
-    h('div', { class: 'row two' }, h('label', {}, 'Travel °'), numInput(sv.range_deg[0], (v) => { sv.range_deg[0] = v; upd(); }, 5), numInput(sv.range_deg[1], (v) => { sv.range_deg[1] = v; upd(); }, 5)),
-    field('Full-torque error (rad)', numInput(sv.kp_sat_rad, (v) => { sv.kp_sat_rad = Math.max(0.01, v); upd(); }, 0.01)),
-    field('Rotor inertia (kg·m²)', numInput(sv.armature, (v) => { sv.armature = Math.max(0, v); upd(); }, 0.001)),
-    field('Static friction (×τ)', numInput(sv.frictionloss_frac, (v) => { sv.frictionloss_frac = Math.max(0, v); upd(); }, 0.01)),
-    h('div', { class: 'stat' }, `kp ${d.kp.toFixed(2)} N·m/rad · kv ${d.kv.toFixed(3)} · back-EMF damping ${d.damping.toFixed(3)} N·m·s/rad`),
-    h('div', { class: 'help' }, 'Torque is clipped at the stall torque and falls linearly to zero at the no-load speed (damping = stall torque ÷ no-load speed). Inertia and friction are estimates – tune them against your servo.'),
-  ];
-}
+const assembler = createAssembler({ app, viewport, el: $('#assemble'), flash, refresh: () => { renderLeft(); renderRight(); renderToolbar(ctx); renderGizmoBar(ctx); } });
 
-function connectorsSection(n) {
-  const out = [h('h3', {}, `Connectors (${n.connectors?.length ?? 0})`)];
-  for (const c of n.connectors ?? []) {
-    out.push(h('div', { class: 'conn' },
-      h('input', { type: 'text', value: c.name, onchange: (e) => (c.name = e.target.value) }),
-      h('button', { title: 'Flip normal / Z axis', onclick: () => { const q = new Quaternion(...c.quat).multiply(new Quaternion(1, 0, 0, 0)); c.quat = [q.x, q.y, q.z, q.w]; changed(); } }, '⇅'),
-      h('button', { title: 'Delete connector', class: 'danger', onclick: () => { n.connectors = n.connectors.filter((x) => x !== c); viewport.setProject(app.project); renderRight(); } }, '✕')));
-  }
-  out.push(h('div', { class: 'help' }, 'Connectors are mounting frames (green markers, Z = surface normal / axis). Create them by clicking in “Mate parts”.'));
-  return out;
-}
-
-function infoSection(n) {
-  const out = [];
-  if (n.mate) {
-    const t = app.project.nodes[n.mate.targetNode];
-    out.push(h('h3', {}, 'Assembly'), h('div', { class: 'stat' }, `Mated to “${t?.name ?? '?'}” · ${n.mate.type}${n.mate.flip ? ' · flipped' : ''}`),
-      h('button', { onclick: () => { try { reapplyMate(app.project, n.id); viewport.setProject(app.project); renderRight(); } catch (e) { flash(e.message); } } }, 'Re-snap to mate'));
-  }
-  if (n.library) {
-    out.push(h('h3', {}, 'Library part'));
-    for (const [k, v] of Object.entries(n.library.status ?? {})) out.push(h('div', { class: /verify|estimate/.test(v) ? 'note' : 'stat' }, `${k.replace(/_/g, ' ')}: ${v}`));
-    for (const src of n.library.sources ?? []) {
-      let ok = false; try { ok = ['http:', 'https:'].includes(new URL(src.url).protocol); } catch { /* not a URL */ }
-      out.push(h('div', { class: 'stat' }, ok ? h('a', { href: src.url, target: '_blank', rel: 'noopener noreferrer', style: 'color:var(--acc)' }, src.title) : String(src.title)));
-    }
-  }
-  return out;
-}
-
+/* ------------------------------ input ------------------------------ */
 addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && assembler.active) assembler.stop(true);
-  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
-  if ((e.ctrlKey || e.metaKey) && e.key === 'c') doCopy();
-  if ((e.ctrlKey || e.metaKey) && e.key === 'v') doPaste(false);
-  if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); doDuplicate(); }
-  if (e.key === 'w') { viewport.setMode('translate'); renderRight(); }
-  if (e.key === 'e') { viewport.setMode('rotate'); renderRight(); }
+  if (e.key === 'Escape') { if (assembler.active) assembler.stop(true); if (app.pop) { app.pop = null; renderToolbar(ctx); } }
+  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName) || document.querySelector('.modal')) return; // no shortcuts while typing or behind a dialog
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c') act.copy();
+  if ((e.ctrlKey || e.metaKey) && e.key === 'v') act.paste(false);
+  if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); act.duplicate(); }
+  if (e.ctrlKey || e.metaKey) return;
+  if (e.key === 'w') { viewport.setMode('translate'); renderGizmoBar(ctx); }
+  if (e.key === 'e') { viewport.setMode('rotate'); renderGizmoBar(ctx); }
+  if (e.key === 'm') act.mate();
   if (e.key === 'Delete' && node()) { removeNode(app.project, app.selected); app.selected = null; structural(false); }
+});
+addEventListener('click', () => { if (app.pop) { app.pop = null; renderToolbar(ctx); } });
+
+const vp = $('#viewport');
+vp.addEventListener('dragover', (e) => { e.preventDefault(); vp.classList.add('dragover'); });
+vp.addEventListener('dragleave', () => vp.classList.remove('dragover'));
+vp.addEventListener('drop', (e) => {
+  e.preventDefault(); vp.classList.remove('dragover');
+  const files = [...e.dataTransfer.files], stls = files.filter((f) => /\.stl$/i.test(f.name)), zip = files.find((f) => /\.zip$/i.test(f.name));
+  if (stls.length) importFiles(stls); else if (zip) openProject(zip);
 });
 
 $('#hint').textContent = HINT;
-renderToolbar(); structural(false); initLibrary(renderLeft);
-window.s2m = { app, viewport, importFiles, structural, select, assembler, core: { addConnector, applyMate } }; // handy for debugging / tests
+structural(false); initLibrary(renderLeft);
+window.s2m = { app, viewport, importFiles, structural, select, assembler, ctx, core: { addConnector, applyMate } }; // handy for debugging / tests
