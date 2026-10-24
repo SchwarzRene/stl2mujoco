@@ -52,7 +52,7 @@ export function addNode(project, { name, parent = null, partId = null, role = 'l
     role: 'link', frame: base, partPose: partPose ?? { pos: [...base.pos], quat: [...base.quat] },
     joint: defaultJoint(), actuator: null,
     mass: { mode: 'density', density: 1240, mass: 0.1 },
-    collision: 'mesh', color: '#8aa4c8', friction: null, connectors: [], servo: null, mate: null, library: null,
+    collision: 'mesh', color: '#8aa4c8', friction: null, connectors: [], servo: null, mate: null, library: null, copy: null,
   };
   project.nodes[id] = node;
   applyRole(node, role);
@@ -100,7 +100,8 @@ export function polarArray(project, id, { count, stepDeg, center = [0, 0, 0], in
     const R = new Matrix4().makeTranslation(...center)
       .multiply(new Matrix4().makeRotationZ((stepDeg * i * Math.PI) / 180))
       .multiply(new Matrix4().makeTranslation(-center[0], -center[1], -center[2]));
-    created.push(copySubtree(project, id, R, `_${i + 1}`, project.nodes[id].parent));
+    ensureFamily(project, id);
+    created.push(cloneSubtree(project, id, { M: R, suffix: `_${i + 1}` })[0]);
   }
   return created;
 }
@@ -111,6 +112,7 @@ export function mirrorSubtree(project, id, axis = 1, suffix = '_mirror') {
   const Sm = new Matrix4().makeScale(...S);
   const idMap = {}, partMap = {};
   const out = [];
+  ensureFamily(project, id);
   for (const oid of subtreeIds(project, id)) {
     const o = project.nodes[oid];
     const n = cloneNode(o);
@@ -124,12 +126,14 @@ export function mirrorSubtree(project, id, axis = 1, suffix = '_mirror') {
     const a = o.joint.axis.slice(); a[axis] = -a[axis];
     n.joint.axis = a.map((v) => -v);
     n.mate = null;
+    n.copy = { ...o.copy, mirrored: !o.copy.mirrored };
     n.connectors = (o.connectors ?? []).map((c) => ({ ...c, id: uid(), ...mirrorConnector(c, axis) }));
     if (o.part) {
       if (!partMap[o.part]) {
         const p = project.parts[o.part];
         const mirrored = mirrorMesh(p.positions, axis);
-        partMap[o.part] = addPart(project, { name: p.name + suffix, positions: mirrored, unitScale: p.unitScale, source: p.source, dims: p.dims }).id;
+        const mp = addPart(project, { name: p.name + suffix, positions: mirrored, unitScale: p.unitScale, source: p.source, dims: p.dims });
+        mp.trusted = p.trusted; partMap[o.part] = mp.id;
       }
       n.part = partMap[o.part];
     }
@@ -148,21 +152,90 @@ function mirrorConnector(c, axis) {
   return { pos: S(c.pos), quat: [q.x, q.y, q.z, q.w] };
 }
 
-function copySubtree(project, id, M, suffix, newParent) {
-  const idMap = {}, out = [];
-  for (const oid of subtreeIds(project, id)) {
-    const o = project.nodes[oid];
+/** Give every node of the subtree a copy-family identity (group + DFS index) so copies can be kept in sync. */
+export function ensureFamily(project, id) {
+  const ids = subtreeIds(project, id);
+  const group = project.nodes[id].copy?.group ?? uid();
+  ids.forEach((nid, key) => { const n = project.nodes[nid]; n.copy ??= { group, key, mirrored: false }; });
+  return group;
+}
+
+/**
+ * Clone a subtree with all attributes (joints, servo/actuator, mass, collision, connectors).
+ * `M` transforms the world poses; `source` may be a clipboard snapshot ({nodes}) – parts are shared by id.
+ * Mates are kept only when their target is inside the cloned subtree. Returns the new nodes, root first.
+ */
+export function cloneSubtree(source, id, { target = source, M = new Matrix4(), suffix = ' (copy)', parent = source.nodes[id].parent } = {}) {
+  const ids = subtreeIds(source, id), idMap = {}, connMap = {}, out = [];
+  for (const oid of ids) idMap[oid] = uid();
+  ids.forEach((oid) => {
+    const o = source.nodes[oid];
+    if (o.part && !target.parts?.[o.part]) throw new Error(`Part of "${o.name}" is not available in this project`);
     const n = cloneNode(o);
-    n.id = uid(); idMap[oid] = n.id;
-    n.name = o.name + suffix;
-    n.parent = oid === id ? newParent : idMap[o.parent];
-    n.connectors = (o.connectors ?? []).map((c) => ({ ...c, id: uid() }));
-    n.mate = null;
+    n.id = idMap[oid]; n.name = o.name + suffix;
+    n.parent = oid === id ? parent : idMap[o.parent];
+    n.connectors = (o.connectors ?? []).map((c) => { const nc = { ...c, id: uid() }; connMap[c.id] = nc.id; return nc; });
     n.frame = matrixToPose(M.clone().multiply(poseToMatrix(o.frame)));
     n.partPose = matrixToPose(M.clone().multiply(poseToMatrix(o.partPose)));
-    project.nodes[n.id] = n; out.push(n);
+    target.nodes[n.id] = n; out.push(n);
+  });
+  for (const n of out) {
+    if (n.mate && idMap[n.mate.targetNode]) n.mate = { ...n.mate, targetNode: idMap[n.mate.targetNode], targetConn: connMap[n.mate.targetConn] ?? n.mate.targetConn, moverConn: connMap[n.mate.moverConn] ?? n.mate.moverConn };
+    else n.mate = null;
   }
-  return out[0];
+  return out;
+}
+
+/** In-app clipboard: snapshot of a subtree. */
+export function copyToClipboard(project, id) {
+  ensureFamily(project, id);
+  const nodes = {};
+  for (const nid of subtreeIds(project, id)) nodes[nid] = cloneNode(project.nodes[nid]);
+  const parts = {};
+  for (const n of Object.values(nodes)) if (n.part) parts[n.part] = project.parts[n.part];
+  return { nodes, rootId: id, parts, name: project.nodes[id].name };
+}
+export function pasteClipboard(project, clip, { parent = clip.nodes[clip.rootId].parent, M = new Matrix4() } = {}) {
+  if (parent && !project.nodes[parent]) parent = null;
+  for (const [pid, part] of Object.entries(clip.parts ?? {})) project.parts[pid] ??= part; // restore meshes pruned after the original was deleted
+  const strip = (name) => name.replace(/ \(\d+\)$/, '');
+  const taken = new Set(Object.values(project.nodes).map((n) => n.name));
+  const rootBase = strip(clip.nodes[clip.rootId].name);
+  let k = 2; while (taken.has(`${rootBase} (${k})`)) k++;
+  const made = cloneSubtree(clip, clip.rootId, { target: project, M, suffix: '', parent });
+  for (const n of made) n.name = `${strip(n.name)} (${k})`;
+  return made;
+}
+
+/** Duplicate a subtree (optionally shifted by `offset` metres in world space). */
+export function duplicateSubtree(project, id, { offset = [0, 0, 0] } = {}) {
+  return pasteClipboard(project, copyToClipboard(project, id), { parent: project.nodes[id].parent, M: new Matrix4().makeTranslation(...offset) });
+}
+
+/** `count` total copies including the original, each shifted by `step` metres from the previous one. */
+export function linearArray(project, id, { count, step }) {
+  const out = [];
+  const clip = copyToClipboard(project, id);
+  for (let i = 1; i < count; i++) out.push(pasteClipboard(project, clip, { parent: project.nodes[id].parent, M: new Matrix4().makeTranslation(step[0] * i, step[1] * i, step[2] * i) })[0]);
+  return out;
+}
+
+export const familyMembers = (project, id) => {
+  const n = project.nodes[id];
+  return n?.copy ? Object.values(project.nodes).filter((m) => m.id !== id && m.copy?.group === n.copy.group && m.copy.key === n.copy.key) : [];
+};
+
+const SYNC_FIELDS = ['role', 'joint', 'actuator', 'servo', 'mass', 'collision', 'color', 'friction'];
+/** Copy the settings (not poses) of a node to the matching node in every copy. Returns the number of nodes changed. */
+export function applyToCopies(project, id) {
+  const n = project.nodes[id];
+  const members = familyMembers(project, id);
+  for (const m of members) {
+    const keepAxis = m.copy.mirrored !== n.copy.mirrored ? [...m.joint.axis] : null; // mirrored limbs have a flipped axis
+    for (const f of SYNC_FIELDS) m[f] = n[f] == null ? n[f] : JSON.parse(JSON.stringify(n[f]));
+    if (keepAxis) m.joint.axis = keepAxis;
+  }
+  return members.length;
 }
 
 /** Translate all roots so that the lowest point of the robot rests on z=0. Returns the shift (m). */
