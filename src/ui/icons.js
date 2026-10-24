@@ -6,6 +6,7 @@ const R = (x, y, w, h, r = 1) => `<rect x="${x}" y="${y}" width="${w}" height="$
 const ICONS = {
   // actions
   import: P('M12 3v12m0 0l-4-4m4 4l4-4') + P('M4 17v3h16v-3'),
+  assembly: R(3, 12, 9, 9, 1) + R(12, 3, 9, 9, 1) + P('M7.5 12V9h4.5'),
   export: P('M12 15V3m0 0L8 7m4-4l4 4') + P('M4 17v3h16v-3'),
   mate: P('M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1') + P('M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'),
   box: P('M12 3l8 4.5v9L12 21l-8-4.5v-9z') + P('M12 12l8-4.5M12 12v9M12 12L4 7.5'),

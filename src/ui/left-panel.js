@@ -31,6 +31,7 @@ export function renderStart(ctx) {
     h('p', {}, 'Start with parts'),
     h('div', { class: 'start-cards' },
       card('import', 'Import', 'STL from your CAD', ctx.act.import, 'start-import'),
+      card('assembly', 'From STEP', 'CAD assembly + STLs', ctx.act.openStep, 'start-step'),
       card('library', 'Library', 'servos, screws …', () => { ctx.app.leftTab = 'library'; ctx.renderLeft(); }, 'start-library'),
       card('open', 'Open', 'a saved project', ctx.act.open, 'start-open')),
     h('div', { class: 'drop-hint' }, icon('import', 14), ' drop STL files anywhere')));
