@@ -53,6 +53,8 @@ node cli/convert.mjs crabsy.s2m.zip out/crabsy     # headless export
 # or open crabsy.s2m.zip in the editor ("Open project") to refine it
 ```
 
+Only the feet (tibia) have collision geometry in the example: convex hulls of neighbouring printed parts overlap and would push against each other. Enable collision on more parts in the editor only where the hull is a good approximation.
+
 **The leg placement in this example is an estimate** from part bounding boxes; refine joint frames/part poses in the editor against your CAD.
 
 ## Project layout

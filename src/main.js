@@ -223,7 +223,7 @@ function renderRight() {
       h('div', { class: 'help' }, 'Position servo: τ = kp·(ctrl − q) − kv·q̇, clipped to ± max torque (N·m).'),
     );
   } else if (['hinge', 'slide'].includes(j.type)) {
-    sec.push(h('button', { onclick: () => { applyRole(n, n.role); n.joint.type = j.type; n.actuator = { kind: 'position', kp: 20, kv: 0.6, ctrlrange: j.range ? [...j.range] : [-1.57, 1.57], forcerange: 1, gear: 1 }; renderRight(); } }, '＋ Add actuator'));
+    sec.push(h('button', { onclick: () => { n.actuator = { kind: 'position', kp: 20, kv: 0.6, ctrlrange: j.range ? [...j.range] : [-1.57, 1.57], forcerange: 1, gear: 1 }; renderRight(); } }, '＋ Add actuator'));
   }
 
   if (part) {
@@ -256,7 +256,7 @@ addEventListener('keydown', (e) => {
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
   if (e.key === 'w') { viewport.setMode('translate'); renderRight(); }
   if (e.key === 'e') { viewport.setMode('rotate'); renderRight(); }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && node()) { removeNode(app.project, app.selected); app.selected = null; structural(false); }
+  if (e.key === 'Delete' && node()) { removeNode(app.project, app.selected); app.selected = null; structural(false); }
 });
 
 $('#hint').textContent = HINT;

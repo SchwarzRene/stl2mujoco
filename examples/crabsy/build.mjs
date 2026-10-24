@@ -52,6 +52,9 @@ mg996r('femur_servo_mg996r', coxa.id, [100, 0, 45], [90, 0, 0]);
 mg996r('tibia_servo_mg996r', femur.id, [200, 0, 45], [90, 0, 0]);
 
 // ---- 6 legs, 60° apart ---------------------------------------------------------------------------------------
+// Hull collision of the printed parts overlaps their non-adjacent neighbours, so only the feet collide.
+for (const n of Object.values(P.nodes)) n.collision = 'none';
+tibia.collision = 'mesh';
 for (const leg of [coxa]) polarArray(P, leg.id, { count: 6, stepDeg: 60 });
 // the original leg keeps its name; give copies tidy names
 for (const n of Object.values(P.nodes)) n.name = n.name.replace(/_(\d)$/, '_leg$1');
