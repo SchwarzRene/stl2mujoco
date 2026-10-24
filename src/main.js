@@ -2,7 +2,9 @@ import { Viewport } from './ui/viewport.js';
 import {
   newProject, addPart, addPrimitive, addNode, removeNode, subtreeIds, children, roots, polarArray, mirrorSubtree,
   dropToFloor, validate, isDescendant, poseFromEulerDeg, eulerDegFromPose, poseToMatrix,
+  copyToClipboard, pasteClipboard, duplicateSubtree, linearArray, applyToCopies, familyMembers,
 } from './core/project.js';
+import { Matrix4 } from 'three';
 import { ROLES, MATERIALS, SERVO_PRESETS, applyRole } from './core/presets.js';
 import { parseSTL } from './core/stl.js';
 import { nodeInertial } from './core/mjcf.js';
@@ -14,7 +16,7 @@ import { Quaternion } from 'three';
 import { createAssembler } from './ui/assemble.js';
 import { initLibrary, renderLibrary } from './ui/library-panel.js';
 
-const app = { project: newProject('my_robot'), selected: null, tab: 'part', msg: '', leftTab: 'structure' };
+const app = { project: newProject('my_robot'), selected: null, tab: 'part', msg: '', leftTab: 'structure', clip: null, dupOffset: [0, 60, 0], arr: { count: 3, step: [60, 0, 0] } };
 const $ = (s) => document.querySelector(s);
 const deg = (r) => (r * 180) / Math.PI, rad = (d) => (d * Math.PI) / 180;
 const round = (v, n = 3) => +Number(v).toFixed(n);
@@ -257,14 +259,46 @@ function renderRight() {
 
   if (n.servo) sec.push(...servoSection(n));
   sec.push(...connectorsSection(n), ...infoSection(n));
-  sec.push(h('h3', {}, 'Copy / mirror'),
+  const mm3 = (key, get) => h('div', { class: 'row three' }, h('label', {}, get.label), get.v.map((x, k) => numInput(x, (v) => { get.v[k] = v; }, 5)));
+  const fam = familyMembers(p, n.id);
+  sec.push(h('h3', {}, 'Copy / paste'),
+    h('div', { class: 'btns' },
+      h('button', { title: 'Ctrl+C', onclick: () => doCopy() }, 'Copy'),
+      h('button', { title: 'Ctrl+V', disabled: !app.clip, onclick: () => doPaste(false) }, 'Paste'),
+      h('button', { disabled: !app.clip, title: 'Paste as a child of the selected part', onclick: () => doPaste(true) }, 'Paste as child'),
+      h('button', { title: 'Ctrl+D', onclick: () => doDuplicate() }, 'Duplicate')),
+    mm3('d', { label: 'Offset mm', v: app.dupOffset }),
+    h('div', { class: 'help' }, 'Copies include all children with their joints, servos, masses and connectors. The copy is selected with “With children” on, so you can drag it straight away.'),
+    h('div', { class: 'row two' }, h('label', {}, 'Linear array'), numInput(app.arr.count, (v) => (app.arr.count = Math.max(2, v | 0)), 1), h('button', { onclick: () => { linearArray(p, n.id, { count: app.arr.count, step: app.arr.step.map((v) => v / 1000) }); flash(`Created ${app.arr.count - 1} copies.`); structural(true); } }, 'Create')),
+    mm3('s', { label: 'Step mm', v: app.arr.step }),
+    fam.length ? h('div', { class: 'btns' }, h('button', { class: 'primary', title: 'Copies joint, servo, actuator, mass, collision and colour settings of this part to the matching part in every copy', onclick: () => { const c = applyToCopies(p, n.id); viewport.setProject(p); flash(`Applied settings to ${c} copies.`); renderRight(); } }, `Apply these settings to ${fam.length} copies`)) : null,
+    h('h3', {}, 'Circular array / mirror'),
     h('div', { class: 'btns' },
       h('button', { onclick: () => { const c = parseInt(prompt('Total number of copies (including this one) around the world Z axis?', '6')); if (c > 1) { polarArray(p, n.id, { count: c, stepDeg: 360 / c }); structural(true); } } }, 'Circular array (Z)'),
       ['X', 'Y', 'Z'].map((a, k) => h('button', { onclick: () => { mirrorSubtree(p, n.id, k); structural(true); } }, `Mirror ${a}`))),
-    h('div', { class: 'help' }, 'Copies include all children. Mirrored copies get mirrored meshes and flipped hinge axes.'),
+    h('div', { class: 'help' }, 'Mirrored copies get mirrored meshes and flipped hinge axes.'),
     h('div', { class: 'btns' }, h('button', { class: 'danger', onclick: () => { removeNode(p, n.id); app.selected = null; structural(false); } }, 'Delete part + children')),
     h('h3', {}, 'Checks'), issueEls);
   R.replaceChildren(...sec.flat().filter(Boolean));
+}
+
+function doCopy() {
+  if (!node()) return;
+  app.clip = copyToClipboard(app.project, app.selected);
+  flash(`Copied “${app.clip.name}” with all children.`); renderRight();
+}
+function afterPaste(made) {
+  viewport.withSubtree = true; // so the copy can be dragged as a whole
+  app.selected = made[0].id; structural(true); flash(`Created “${made[0].name}” (${made.length} parts).`);
+}
+function doPaste(asChild) {
+  if (!app.clip) return;
+  const off = new Matrix4().makeTranslation(...app.dupOffset.map((v) => v / 1000));
+  try { afterPaste(pasteClipboard(app.project, app.clip, { parent: asChild ? app.selected : undefined, M: off })); } catch (e) { flash(e.message); }
+}
+function doDuplicate() {
+  if (!node()) return;
+  afterPaste(duplicateSubtree(app.project, app.selected, { offset: app.dupOffset.map((v) => v / 1000) }));
 }
 
 function servoSection(n) {
@@ -321,6 +355,9 @@ function infoSection(n) {
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && assembler.active) assembler.stop(true);
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c') doCopy();
+  if ((e.ctrlKey || e.metaKey) && e.key === 'v') doPaste(false);
+  if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); doDuplicate(); }
   if (e.key === 'w') { viewport.setMode('translate'); renderRight(); }
   if (e.key === 'e') { viewport.setMode('rotate'); renderRight(); }
   if (e.key === 'Delete' && node()) { removeNode(app.project, app.selected); app.selected = null; structural(false); }
