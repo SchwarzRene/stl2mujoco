@@ -94,20 +94,22 @@ A mate puts the two connectors together face-to-face (Flip aligns the Z axes ins
 
 ## Example: Crabsy hexapod
 
-`examples/crabsy/build.mjs` builds a *starting-point* project from a checkout of
-[Crabsy](https://github.com/SamuelNoesslboeck/Crabsy) (base, one leg of printed links driven by three library MG996R servos, circular array ×6;
-battery/Pi as measured-mass boxes):
+`examples/crabsy/build.mjs` builds the robot from a checkout of
+[Crabsy](https://github.com/SamuelNoesslboeck/Crabsy): the printed-part STLs give the geometry and the **assembly exported from Solid Edge as STEP**
+(`construction/a_crabsy.asm` ▸ Save As ▸ `.stp`) gives the exact placement of every part and servo (`src/core/step-asm.js` reads the
+assembly structure and transforms from the STEP file). One leg is built with three library MG996R servos (coxa, femur, tibia – the femur
+hinge turns the servo *case* around its fixed shaft, as in the CAD) and repeated ×6; battery/Pi are mass boxes.
 
 ```bash
 git clone --depth 1 https://github.com/SamuelNoesslboeck/Crabsy
-node examples/crabsy/build.mjs Crabsy crabsy.s2m.zip
+node examples/crabsy/build.mjs Crabsy a_crabsy.stp crabsy.s2m.zip
 node cli/convert.mjs crabsy.s2m.zip out/crabsy     # headless export
 # or open crabsy.s2m.zip in the editor ("Open project") to refine it
 ```
 
 Only the feet (tibia) have collision geometry in the example: convex hulls of neighbouring printed parts overlap and would push against each other. Enable collision on more parts in the editor only where the hull is a good approximation.
 
-**The leg placement in this example is an estimate** from part bounding boxes; refine joint frames/part poses in the editor against your CAD.
+Joint zero is the pose of the exported assembly. The aluminium servo flanges (no STL in the repo) are not modelled.
 
 ## Project layout
 
