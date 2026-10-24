@@ -12,8 +12,15 @@ Toolbar **assembly icon** (or **From STEP** on the start screen):
 | 2 | 🧱 add STL files, or a **Folder** (searched incl. sub-folders) | matched by name, case and `_ -` ignored |
 | 3 | 📋 check the list, missing parts first | ✅ matched · 🔩 library servo · ⚠️ needs an STL |
 | 3b | ⬇️ **import icon on a row** | pick the STL for that one part, any file name |
-| 4 | 🤖 **Suggest** (or load your `robot.json`) | edit it in the box |
+| 4 | 🤖 **Suggest** (or load your `robot.json`) | optional, edit it in the box |
 | 5 | 🏗️ **Build** | robot appears in the editor, same result as the CLI |
+
+| 🤷 Missing | ➡️ Result |
+|---|---|
+| 🧱 no STL for a part | part is left out, ⚠️ warning |
+| 🧱 no STL for the base | 🟨 60×60×10 mm placeholder box, 0.1 kg |
+| 📝 no `robot.json` | Build derives one from the STEP (joints = a plain chain, check them) |
+| 🧱 + 📝 nothing but the `.stp` | servos in their exact CAD positions + placeholder base |
 
 Everything runs in the browser, nothing is uploaded anywhere.
 

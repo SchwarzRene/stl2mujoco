@@ -88,10 +88,15 @@ export async function buildRobot({ asm, stl, config, reader, index, warn = () =>
   if (!baseInst.length) throw new Error(`base assembly "${cfg.base.assembly}" not found in the STEP file`);
   if (baseInst.length > 1) note(`base assembly "${cfg.base.assembly}" occurs ${baseInst.length}×; only the first is used`);
   const baseLeaves = baseInst[0].members.filter((o) => o.leaf);
-  const rootOcc = (cfg.base?.root ? baseLeaves.find((o) => o.product === cfg.base.root) : baseLeaves.find((o) => stl.find(o.product, o.path.slice(0, -1)))) ?? null;
-  if (!rootOcc) throw new Error('no base part with an STL file found (set base.root and/or the stl overrides)');
-  const base = printed(rootOcc, null, 'base');
-  if (!base) throw new Error(`no STL file found for the base part "${rootOcc.product}"`);
+  const rootOcc = (cfg.base?.root ? baseLeaves.find((o) => o.product === cfg.base.root) : baseLeaves.find((o) => stl.find(o.product, o.path.slice(0, -1))) ?? baseLeaves[0]) ?? null;
+  if (!rootOcc) throw new Error(`the base assembly has no parts${cfg.base?.root ? ` named "${cfg.base.root}"` : ''} – check base.assembly / base.root in robot.json`);
+  let base = printed(rootOcc, null, 'base');
+  if (!base) { // no STL for the base: a small placeholder box (0.1 kg) so the limbs have something to hang from
+    note(`no STL for the base part "${rootOcc.product}" – using a 60x60x10 mm placeholder box (0.1 kg); add its STL for the real shape and mass`);
+    const box = addPrimitive(P, 'box', [0.06, 0.06, 0.01]); box.name = `${rootOcc.product}_placeholder`;
+    base = addNode(P, { name: rootOcc.product, partId: box.id, role: 'base', frame: pose(rootOcc.world), partPose: pose(rootOcc.world) });
+    base.mass = { mode: 'explicit', mass: 0.1, density: 0 }; base.collision = 'none'; base.color = '#c9a227';
+  }
   for (const o of baseLeaves) {
     if (o === rootOcc || cfg.ignore.includes(o.product)) continue;
     if (!printed(o, base.id)) note(`no STL for base part "${o.product}" – left out`);
@@ -128,7 +133,7 @@ export async function buildRobot({ asm, stl, config, reader, index, warn = () =>
       } else if (cands.length > 1) throw new Error(`"${prod}" occurs ${cands.length}× in the limb – write "${prod}@<servo>" to take the one nearest to that servo's shaft`);
       used.add(o); return o;
     };
-    const limbNodes = [];
+    const limbNodes = [], notedMissing = new Set();
     const sfx = `_${label}1`;
     const track = (n) => { if (n) limbNodes.push(n); return n; };
     const sides = [];
@@ -157,8 +162,12 @@ export async function buildRobot({ asm, stl, config, reader, index, warn = () =>
       }
       track(cs); track(os);
       sides[i] = { case: cs, output: os };
-      for (const part of spec.case ?? []) { const o = pick(part); if (!track(printed(o, cs.id, 'link', sfx))) throw new Error(`no STL file for limb part "${o.product}"`); }
-      for (const part of spec.output ?? []) { const o = pick(part); if (!track(printed(o, os.id, 'link', sfx))) throw new Error(`no STL file for limb part "${o.product}"`); }
+      for (const [side, parentId] of [['case', cs.id], ['output', os.id]]) {
+        for (const part of spec[side] ?? []) {
+          const o = pick(part);
+          if (!track(printed(o, parentId, 'link', sfx)) && !notedMissing.has(o.product)) { notedMissing.add(o.product); note(`no STL for "${o.product}" – left out`); }
+        }
+      }
     }
     for (const o of free) if (!used.has(o) && !cfg.ignore.includes(o.product)) note(`limb part "${o.product}" is not used in robot.json – left out`);
 
@@ -197,7 +206,7 @@ export function suggestConfig({ asm, stl, index }) {
   if (!limbName) { notes.push('no servo (a "Case" part followed by a "Shaft" part) found – only the base is built'); return { config, notes }; }
 
   const members = instancesOf(asm, limbName)[0].members;
-  const root = instancesOf(asm, baseName)[0].members.find((o) => o.leaf && stl.find(o.product, o.path.slice(0, -1)));
+  const root = baseName ? instancesOf(asm, baseName)[0].members.find((o) => o.leaf && stl.find(o.product, o.path.slice(0, -1))) : null;
   const servos = sortServos(detect(members), root ? origin(root.world) : [0, 0, 0]);
   const subName = servos[0].c.path[servos[0].c.path.length - 2] ?? '';
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');

@@ -133,3 +133,24 @@ describe('createStlLookup (shared by the CLI and the editor)', () => {
     expect(() => createStlLookup(['x/a.stl'], load, { part: 'b.stl' }).find('part')).toThrow(/override/);
   });
 });
+
+describe('missing STL files', () => {
+  const noStl = createStlLookup([], () => null);
+  const config = {
+    name: 'test', base: { assembly: 'body' },
+    servoModel: { library: 'servo_mg996r', case: 'Case', shaft: 'Shaft' },
+    limb: { assembly: 'arm', label: 'arm', servos: [{ parent: 'base', moves: 'output', output: ['LINK'] }] },
+  };
+  it('builds without any STL: base becomes a placeholder box, parts are left out with warnings, servos stay', async () => {
+    const { project, warnings } = await buildRobot({ asm: parseStepAssembly(STEP), stl: noStl, config, reader, index });
+    const nodes = Object.values(project.nodes);
+    expect(nodes.filter((n) => n.role === 'servo')).toHaveLength(2);       // the library servos do not need an STL
+    expect(nodes.filter((n) => n.role === 'base' && project.parts[n.part].source === 'box')).toHaveLength(1);
+    expect(warnings.some((w) => /placeholder box/.test(w))).toBe(true);
+    expect(warnings.some((w) => /"LINK" – left out/.test(w))).toBe(true);
+    expect(new TextDecoder().decode(buildMJCF(project).files['model.xml'])).toContain('<joint');
+  });
+  it('suggests a config even when no STL is available', () => {
+    expect(suggestConfig({ asm: parseStepAssembly(STEP), stl: noStl, index }).config.limb.assembly).toBe('arm');
+  });
+});

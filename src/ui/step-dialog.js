@@ -89,7 +89,7 @@ export function openStepDialog({ flash, onBuilt }) {
       }).sort((a, b) => Number(a.ok) - Number(b.ok)); // parts that still need a file come first
       for (const it of items) {
         if (!it.servo && !it.ignored) { total++; if (!it.hit) missing++; }
-        const label = it.hit ? it.hit.file : it.servo ? `library servo${c?.servoModel ? ` ${c.servoModel.library}` : ''}` : it.ignored ? 'ignored' : 'needs an STL';
+        const label = it.hit ? it.hit.file : it.servo ? `library servo${c?.servoModel ? ` ${c.servoModel.library}` : ''}` : it.ignored ? 'ignored' : 'no STL – left out';
         rows.push(h('div', { class: it.ok ? 'stat' : 'note', 'data-product': it.product },
           icon(it.hit ? 'check' : it.servo ? 'servo' : it.ignored ? 'info' : 'warning', 13), `${it.product}${it.n > 1 ? ` ×${it.n}` : ''}`,
           h('span', { class: 'unit' }, label),
@@ -97,14 +97,14 @@ export function openStepDialog({ flash, onBuilt }) {
       }
     }
     matches.replaceChildren(...rows);
-    partsInfo.replaceChildren(...(S.asm ? [icon(missing ? 'warning' : 'check', 14), missing ? `${total - missing}/${total} parts have an STL – use the import icon on a row, or add a folder` : `all ${total} parts have an STL`] : []));
+    partsInfo.replaceChildren(...(S.asm ? [icon(missing ? 'warning' : 'check', 14), missing ? `${total - missing}/${total} parts have an STL – the others are left out (use the import icon on a row, or add a folder)` : `all ${total} parts have an STL`] : []));
     partsInfo.className = !S.asm ? 'stat' : missing ? 'note' : 'stat ok';
-    suggest.disabled = !(S.asm && S.stl.size);
-    build.disabled = !(S.asm && S.stl.size && c && !c.__error);
+    suggest.disabled = !S.asm;
+    build.disabled = !(S.asm && !c?.__error);
     if (c?.__error) setStatus('err', `robot.json: ${c.__error}`);
     else if (!S.asm) setStatus('info', 'choose the STEP file exported from your CAD assembly');
-    else if (!S.stl.size) setStatus('info', 'add the STL files (or a whole folder) of the parts');
-    else if (!c) setStatus('info', 'click Suggest for a starting robot.json, or load your own');
+    else if (!S.stl.size && !c) setStatus('info', 'add STL files if you have them – parts without an STL are simply left out');
+    else if (!c) setStatus('info', 'no robot.json needed: Build suggests one from the STEP file (click Suggest to look at it first)');
     else setStatus('ok', 'ready to build');
   }
 
@@ -119,9 +119,15 @@ export function openStepDialog({ flash, onBuilt }) {
   async function doBuild() {
     build.disabled = true; setStatus('info', 'building…');
     try {
-      const config = JSON.parse(cfg.value);
-      const reader = fetchReader();
-      const { project, warnings } = await buildRobot({ asm: S.asm, stl: lookup(config.stl), config, reader, index: await loadIndex(reader) });
+      const reader = fetchReader(), index = await loadIndex(reader);
+      let config, suggested = false;
+      if (cfg.value.trim()) config = JSON.parse(cfg.value);
+      else { // no robot.json: derive one from the STEP assembly (shown in the box afterwards, so it can be edited and reused)
+        config = suggestConfig({ asm: S.asm, stl: lookup(), index }).config; suggested = true;
+        cfg.value = JSON.stringify(config, null, 2);
+      }
+      const { project, warnings } = await buildRobot({ asm: S.asm, stl: lookup(config.stl), config, reader, index });
+      if (suggested) warnings.unshift('built from a robot.json suggested from the STEP file – check the joints');
       if (onBuilt(project, warnings) !== false) close(); else refresh();
     } catch (e) { setStatus('err', e.message); build.disabled = false; }
   }
@@ -136,7 +142,7 @@ export function openStepDialog({ flash, onBuilt }) {
     h('div', { class: 'btns' }, ib('open', 'Search a whole folder (including sub-folders) for the parts of the list below', () => dirIn.click(), { label: 'Search a folder', act: 'pick-folder' }), dirIn, stlInfo),
     head(3, 'tree', 'Parts in the STEP', 'check that every part has its STL – pick one per part with the import icon'),
     partsInfo, matches, pick,
-    head(4, 'sliders', 'robot.json', 'which part sits on which servo – write a first version with Suggest, or load your own file (optional)'),
+    head(4, 'sliders', 'robot.json', 'which part sits on which servo – optional – without one, Build derives it from the STEP file; Suggest shows it first'),
     h('div', { class: 'row' }, icon('file', 18), jsonIn),
     h('div', { class: 'btns' }, suggest),
     cfg,
