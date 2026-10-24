@@ -8,7 +8,7 @@ export async function saveProjectZip(project) {
   const zip = new JSZip();
   const parts = {};
   for (const p of Object.values(project.parts)) {
-    const { positions, stats, bbox: _b, ...meta } = p;
+    const { positions, stats, bbox: _b, handle: _h, ...meta } = p;
     parts[p.id] = meta;
     zip.file(`parts/${p.id}.stl`, writeBinarySTL(positions));
   }

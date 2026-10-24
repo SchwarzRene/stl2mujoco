@@ -133,7 +133,7 @@ export function mirrorSubtree(project, id, axis = 1, suffix = '_mirror') {
         const p = project.parts[o.part];
         const mirrored = mirrorMesh(p.positions, axis);
         const mp = addPart(project, { name: p.name + suffix, positions: mirrored, unitScale: p.unitScale, source: p.source, dims: p.dims });
-        mp.trusted = p.trusted; partMap[o.part] = mp.id;
+        mp.trusted = p.trusted; mp.mirrorOf = { part: p.id, axis }; partMap[o.part] = mp.id;
       }
       n.part = partMap[o.part];
     }
