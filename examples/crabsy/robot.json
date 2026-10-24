@@ -1,0 +1,24 @@
+{
+  "name": "crabsy",
+  "units": "mm",
+  "density": 400,
+  "collisionDefault": "none",
+  "collision": { "4_foot_shell": "mesh" },
+  "ignore": ["n5_aluminum_servo_flange"],
+  "stl": { "1_baseplate": "1_base_plate.stl" },
+  "base": { "assembly": "a1_base", "root": "1_baseplate" },
+  "boxes": [
+    { "name": "battery_7v4_2000mah", "size_mm": [70, 18, 15], "at_mm": [0, 0, 25], "mass_kg": 0.1 },
+    { "name": "raspberry_pi_zero", "size_mm": [65, 30, 5], "at_mm": [0, 0, 12], "mass_kg": 0.009 }
+  ],
+  "servoModel": { "library": "servo_mg996r", "case": "Case", "shaft": "Shaft" },
+  "limb": {
+    "assembly": "a2_leg",
+    "label": "leg",
+    "servos": [
+      { "parent": "base", "moves": "output", "case": ["1_lower_bearing"], "output": ["5_connector@0", "5_connector@1"] },
+      { "parent": "0.output", "moves": "case", "case": ["2_middle_segment", "3_middle_cap"] },
+      { "parent": "1.case", "moves": "output", "output": ["5_connector@2", "4_foot_shell"] }
+    ]
+  }
+}
