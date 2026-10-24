@@ -1,0 +1,21 @@
+{
+  "name": "stl2mujoco",
+  "version": "0.1.0",
+  "description": "Visual editor that converts CAD/STL parts into MuJoCo robot models",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "convert": "node cli/convert.mjs"
+  },
+  "dependencies": {
+    "jszip": "3.10.1",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "vite": "6.0.7",
+    "vitest": "2.1.8"
+  },
+  "license": "MIT"
+}
