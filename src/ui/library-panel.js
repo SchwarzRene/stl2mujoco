@@ -4,13 +4,15 @@ import { bbox } from '../core/mesh.js';
 import { poseToMatrix } from '../core/project.js';
 
 const reader = fetchReader(`${import.meta.env.BASE_URL}standard_parts`);
-let index = null, error = '';
+let index = null, error = '', rerenderFn = null;
 const open = new Set(['Servos']);
 
 export async function initLibrary(rerender) {
-  try { index = await loadIndex(reader); } catch (e) { error = `standard_parts/ not available (${e.message})`; }
+  rerenderFn = rerender;
+  try { index = await loadIndex(reader); error = ''; } catch (e) { error = `standard_parts/ not available (${e.message})`; }
   rerender();
 }
+export const reloadLibrary = () => initLibrary(rerenderFn ?? (() => {}));
 
 function robotMaxX(project) {
   let mx = null;
@@ -22,7 +24,7 @@ function robotMaxX(project) {
   return mx;
 }
 
-export function renderLibrary({ h, app, onAdded, flash }) {
+export function renderLibrary({ h, app, onAdded, flash, onDatasheet }) {
   const box = h('div', {});
   if (error) return h('div', { class: 'empty' }, error);
   if (!index) return h('div', { class: 'empty' }, 'Loading library…');
@@ -46,6 +48,7 @@ export function renderLibrary({ h, app, onAdded, flash }) {
     } catch (e) { flash(`Could not add ${entry.name}: ${e.message}`); }
   }
   box.append(
+    h('button', { class: 'primary', style: 'width:100%;margin-bottom:8px', title: 'Let a headless Claude Code session read a datasheet and create the part', onclick: onDatasheet }, '✨ Add part from datasheet'),
     h('input', { type: 'text', placeholder: 'Search servos, screws, M3…', oninput: (e) => { q = e.target.value.toLowerCase(); draw(); } }),
     h('div', { class: 'help' }, 'Standard parts live in the standard_parts/ folder of the repo (add your own there).'), list);
   draw();

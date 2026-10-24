@@ -8,6 +8,7 @@
     "build": "vite build",
     "test": "vitest run",
     "convert": "node cli/convert.mjs",
+    "serve": "node server/serve.mjs",
     "parts": "node tools/standard-parts.mjs",
     "parts:index": "node tools/standard-parts.mjs --index"
   },

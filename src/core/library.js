@@ -50,7 +50,7 @@ export async function instantiate(project, reader, entry, { at = new Matrix4(), 
     node.library = { id: def.id, body: b.name, group, status: def.dims_status ?? null, sources: def.sources ?? [] };
     if (b.joint) {
       node.joint = { ...node.joint, type: b.joint.type, axis: b.joint.axis ?? [0, 0, 1] };
-      if (b.servo) { node.role = 'servo'; node.servo = newServoState(b.servo.preset); Object.assign(node.servo, b.servo.overrides ?? {}); applyServo(node); }
+      if (b.servo) { node.role = 'servo'; node.servo = newServoState(b.servo.spec ?? b.servo.preset); Object.assign(node.servo, b.servo.overrides ?? {}); applyServo(node); }
     }
     for (const c of b.connectors ?? []) addConnector(node, { name: c.name, pos: c.pos_mm.map((v) => v * s), normal: c.normal ?? [0, 0, 1], quat: c.rot_quat });
     byName[b.name] = node; made.push(node);

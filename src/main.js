@@ -15,7 +15,8 @@ import { reapplyMate, addConnector, applyMate } from './core/mates.js';
 import { Quaternion } from 'three';
 import { refreshPart } from './core/refresh.js';
 import { createAssembler } from './ui/assemble.js';
-import { initLibrary, renderLibrary } from './ui/library-panel.js';
+import { initLibrary, renderLibrary, reloadLibrary } from './ui/library-panel.js';
+import { openDatasheetDialog } from './ui/datasheet-dialog.js';
 
 const app = { project: newProject('my_robot'), selected: null, tab: 'part', msg: '', leftTab: 'structure', clip: null, dupOffset: [0, 60, 0], arr: { count: 3, step: [60, 0, 0] } };
 const $ = (s) => document.querySelector(s);
@@ -175,7 +176,7 @@ function renderLeft() {
   };
   for (const r of roots(p)) walk(r, 0);
   const tabs = h('div', { class: 'tabs' }, [['structure', 'Structure'], ['library', 'Parts library']].map(([k, t]) => h('button', { class: app.leftTab === k ? 'on' : '', onclick: () => { app.leftTab = k; renderLeft(); } }, t)));
-  if (app.leftTab === 'library') { L.replaceChildren(tabs, renderLibrary({ h, app, onAdded: onLibraryAdded, flash })); return; }
+  if (app.leftTab === 'library') { L.replaceChildren(tabs, renderLibrary({ h, app, onAdded: onLibraryAdded, flash, onDatasheet: () => openDatasheetDialog({ app, h, flash, onAdded: onLibraryAdded, reloadLibrary }) })); return; }
   L.replaceChildren(
     tabs,
     h('h3', {}, 'Robot structure'),
@@ -352,7 +353,8 @@ function servoSection(n) {
   const kgf = d.stall_torque / 0.0980665, rpm = (d.noload_speed * 60) / (2 * Math.PI), s60 = Math.PI / 3 / d.noload_speed;
   return [
     h('h3', {}, 'Servo model'),
-    field('Model', h('select', { onchange: (e) => { n.servo = newServoState(e.target.value); applyServo(n); viewport.refresh(); renderRight(); } },
+    field('Model', h('select', { onchange: (e) => { if (e.target.value === 'custom') return; n.servo = newServoState(e.target.value); applyServo(n); viewport.refresh(); renderRight(); } },
+      sv.preset === 'custom' ? h('option', { value: 'custom', selected: true }, `${sv.name} (from datasheet)`) : null,
       Object.entries(SERVO_SPECS).map(([k, v]) => h('option', { value: k, selected: sv.preset === k }, v.name)))),
     Object.keys(sv.voltages).length > 1
       ? field('Supply', h('select', { onchange: (e) => { sv.voltage = e.target.value; upd(); } }, Object.keys(sv.voltages).map((v) => h('option', { value: v, selected: v === sv.voltage }, `${v} V`))))

@@ -8,10 +8,12 @@ import { SERVO_SPECS } from './servo-specs.js';
 
 const rad = (d) => (d * Math.PI) / 180;
 
+/** `specKey` = key in SERVO_SPECS, or a full spec object (e.g. created from a datasheet). */
 export function newServoState(specKey = 'mg996r') {
-  const s = SERVO_SPECS[specKey] ?? SERVO_SPECS.generic;
+  const custom = specKey && typeof specKey === 'object';
+  const s = custom ? specKey : SERVO_SPECS[specKey] ?? SERVO_SPECS.generic;
   return {
-    preset: specKey, name: s.name, voltage: s.defaultVoltage, voltages: JSON.parse(JSON.stringify(s.voltages)),
+    preset: custom ? 'custom' : specKey, name: s.name, voltage: s.defaultVoltage, voltages: JSON.parse(JSON.stringify(s.voltages)),
     range_deg: [...s.range_deg], armature: s.armature, frictionloss_frac: s.frictionloss_frac, kp_sat_rad: s.kp_sat_rad,
   };
 }
