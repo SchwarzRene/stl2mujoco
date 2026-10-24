@@ -33,6 +33,10 @@ standard_parts/
 
 If your servo differs, edit the numbers in `tools/standard-parts.mjs` and run `npm run parts`, or measure and place connectors yourself.
 
+## Parts created from a datasheet
+
+Parts installed through **✨ Add part from datasheet** are stored like any other part (`part.json` + STL) together with the `spec.json` they were generated from. Review the `dims_status` entries – values marked *estimate – verify* could not be read from the datasheet.
+
 ## Adding your own parts
 
 1. Create `standard_parts/<category>/<your_part>/` with `part.json` and STL files. Minimal example:

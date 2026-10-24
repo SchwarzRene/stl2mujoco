@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { writeBinarySTL } from '../src/core/stl.js';
 import { SERVO_SPECS } from '../src/core/servo-specs.js';
 import { box, cylinder, extrude, polyShape, polyPath, rectPoints, hexPoints, discShape, circlePath, merge } from './geom.mjs';
+import { buildPart } from './part-builders.mjs';
+import { buildIndex } from './library-index.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'standard_parts');
 const write = (dir, name, data) => { mkdirSync(join(ROOT, dir), { recursive: true }); writeFileSync(join(ROOT, dir, name), typeof data === 'string' ? data : data); };
@@ -43,42 +45,19 @@ const HOBBY = {
   },
 };
 
+function emit(dir, built) {
+  for (const [name, mesh] of Object.entries(built.meshes)) stl(dir, name, mesh);
+  json(dir, built.json);
+}
+
 function hobbyServo(key, p) {
   const spec = SERVO_SPECS[key];
-  const dir = `servos/${p.id}`;
-  const x0 = -p.shaftFromEnd, x1 = x0 + p.L, cx = (x0 + x1) / 2, hy = p.W / 2;
-  const earBottom = p.earTop - p.earT;
-  const holes = [-1, 1].map((s) => circlePath(cx + (s * p.earSpacing) / 2, 0, p.earHole / 2));
-  const case_ = merge(
-    box(x0, x1, -hy, hy, -p.H, earBottom),
-    extrude(polyShape(rectPoints(cx - p.earLen / 2, cx + p.earLen / 2, -hy, hy), holes), earBottom, p.earTop),
-    box(x0, x1, -hy, hy, p.earTop, 0),
-    cylinder(0, 0, p.bossD / 2, 0, p.bossH),
-  );
-  const output = cylinder(0, 0, p.splineD / 2, p.bossH, p.splineTop);
-  stl(dir, 'case.stl', case_); stl(dir, 'output.stl', output);
-  json(dir, {
-    schema: 1, id: p.id, name: `${spec.name} servo`, category: 'Servos', units: 'mm',
+  emit(`servos/${p.id}`, buildPart({
+    id: p.id, name: `${spec.name} servo`, category: 'Servos', type: 'hobby_servo', color: '#5a606b', connectors: [],
     description: `${spec.name} hobby servo. Origin on the output shaft axis at the case top plane, +Z towards the horn. Case is rigid; the \`output\` body is the rotating shaft with a position actuator whose torque/speed come from the datasheet.`,
-    dims_status: p.status, sources: p.sources,
-    bodies: [
-      { name: 'case', mesh: 'case.stl', color: '#5a606b', mass_kg: r4(spec.mass - p.outMass), collision: 'mesh',
-        connectors: [
-          conn('ear_hole_1_top', [cx - p.earSpacing / 2, 0, p.earTop], [0, 0, 1], 'mounting hole, top side of the ear'),
-          conn('ear_hole_2_top', [cx + p.earSpacing / 2, 0, p.earTop], [0, 0, 1]),
-          conn('ear_hole_1_bottom', [cx - p.earSpacing / 2, 0, earBottom], [0, 0, -1], 'mounting hole, underside of the ear'),
-          conn('ear_hole_2_bottom', [cx + p.earSpacing / 2, 0, earBottom], [0, 0, -1]),
-          conn('case_top', [0, 0, 0], [0, 0, 1], 'case top plane around the shaft'),
-          conn('case_bottom', [cx, 0, -p.H], [0, 0, -1]),
-          conn('side_back', [x0, 0, (earBottom - p.H) / 2], [-1, 0, 0]),
-          conn('side_front', [x1, 0, (earBottom - p.H) / 2], [1, 0, 0]),
-        ] },
-      { name: 'output', mesh: 'output.stl', parent: 'case', color: '#e3e6ea', mass_kg: p.outMass, collision: 'none',
-        joint: { type: 'hinge', axis: [0, 0, 1], frame_mm: [0, 0, 0] },
-        servo: { preset: key },
-        connectors: [conn('output_top', [0, 0, p.splineTop], [0, 0, 1], 'top of the output spline – mount the horn / bracket here'), conn('output_base', [0, 0, p.bossH], [0, 0, -1])] },
-    ],
-  });
+    params: { L: p.L, W: p.W, H: p.H, earLen: p.earLen, earSpacing: p.earSpacing, earHole: p.earHole, earT: p.earT, earTop: p.earTop, shaftFromEnd: p.shaftFromEnd, bossD: p.bossD, bossH: p.bossH, splineD: p.splineD, splineTop: p.splineTop, outMass: p.outMass },
+    mass_kg: spec.mass, servo: { preset: key }, dims_status: p.status, sources: p.sources,
+  }));
 }
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -93,26 +72,13 @@ const DXL = {
     sources: [{ title: 'AX-12A spec (Generation Robots)', url: 'https://www.generationrobots.com/media/Whole-Dynamixel-Specification.pdf' }, { title: 'AX-12A (Botland)', url: 'https://botland.com.pl/en/standard-servos/13984-servo-robotis-dynamixel-ax-12a-8809052930196.html' }], outMass: 0.006 },
 };
 function dynamixel(key, p) {
-  const spec = SERVO_SPECS[key], dir = `servos/${p.id}`;
-  const y0 = -p.shaftFromTop, y1 = p.Hh - p.shaftFromTop; // body extent along Y (long side)
-  const hx = p.W / 2;
-  const case_ = box(-hx, hx, y0, y1, -p.D, 0);
-  const output = cylinder(0, 0, p.hornD / 2, 0, p.hornT);
-  stl(dir, 'case.stl', case_); stl(dir, 'output.stl', output);
-  json(dir, {
-    schema: 1, id: p.id, name: spec.name, category: 'Servos', units: 'mm',
+  const spec = SERVO_SPECS[key];
+  emit(`servos/${p.id}`, buildPart({
+    id: p.id, name: spec.name, category: 'Servos', type: 'block_servo', color: '#4b525e', connectors: [],
     description: `${spec.name}. Origin on the horn axis at the front face, +Z towards the horn, long side along Y. Horn disc is the rotating \`output\` body.`,
-    dims_status: p.status, sources: p.sources,
-    bodies: [
-      { name: 'case', mesh: 'case.stl', color: '#4b525e', mass_kg: r4(spec.mass - p.outMass), collision: 'mesh',
-        connectors: [conn('front_face', [0, 0, 0], [0, 0, 1], 'front face around the horn'), conn('back_face', [0, (y0 + y1) / 2, -p.D], [0, 0, -1]),
-          conn('side_left', [-hx, (y0 + y1) / 2, -p.D / 2], [-1, 0, 0]), conn('side_right', [hx, (y0 + y1) / 2, -p.D / 2], [1, 0, 0]),
-          conn('end_top', [0, y1, -p.D / 2], [0, 1, 0]), conn('end_bottom', [0, y0, -p.D / 2], [0, -1, 0])] },
-      { name: 'output', mesh: 'output.stl', parent: 'case', color: '#e3e6ea', mass_kg: p.outMass, collision: 'none',
-        joint: { type: 'hinge', axis: [0, 0, 1], frame_mm: [0, 0, 0] }, servo: { preset: key },
-        connectors: [conn('output_top', [0, 0, p.hornT], [0, 0, 1], 'horn face – mount links here'), conn('output_base', [0, 0, 0], [0, 0, -1])] },
-    ],
-  });
+    params: { W: p.W, Hh: p.Hh, D: p.D, shaftFromTop: p.shaftFromTop, hornD: p.hornD, hornT: p.hornT, outMass: p.outMass },
+    mass_kg: spec.mass, servo: { preset: key }, dims_status: p.status, sources: p.sources,
+  }));
 }
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -153,27 +119,9 @@ for (const [dd, t] of Object.entries(W125)) {
 }
 
 /* ------------------------------------------------------------------------------------------------ */
-function buildIndex() {
-  const items = [];
-  const walk = (rel) => {
-    for (const name of readdirSync(join(ROOT, rel)).sort()) {
-      const p = join(rel, name);
-      if (statSync(join(ROOT, p)).isDirectory()) {
-        if (existsSync(join(ROOT, p, 'part.json'))) {
-          const d = JSON.parse(readFileSync(join(ROOT, p, 'part.json'), 'utf8'));
-          items.push({ id: d.id, name: d.name, category: d.category ?? 'Other', path: p.split('\\').join('/'), tags: d.tags ?? [] });
-        } else walk(p);
-      }
-    }
-  };
-  walk('');
-  writeFileSync(join(ROOT, 'index.json'), JSON.stringify({ schema: 1, parts: items }, null, 2) + '\n');
-  console.log(`index.json: ${items.length} parts`);
-}
-
 if (!process.argv.includes('--index')) {
   for (const [k, p] of Object.entries(HOBBY)) hobbyServo(k, p);
   for (const [k, p] of Object.entries(DXL)) dynamixel(k, p);
 }
 mkdirSync(ROOT, { recursive: true });
-buildIndex();
+buildIndex(ROOT);
