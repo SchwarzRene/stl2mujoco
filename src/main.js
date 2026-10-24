@@ -15,6 +15,7 @@ import { renderToolbar, unitScale } from './ui/toolbar.js';
 import { renderLeft as paintLeft, renderStart, renderGizmoBar } from './ui/left-panel.js';
 import { renderInspector } from './ui/inspector.js';
 import { h } from './ui/kit.js';
+import { initTooltips } from './ui/tooltip.js';
 
 const $ = (s) => document.querySelector(s);
 const app = {
@@ -193,6 +194,7 @@ document.addEventListener('pointerdown', () => { pointerDown = true; }, true);
 for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, () => { pointerDown = false; scheduleHistory(); }, true);
 
 $('#hint').textContent = HINT;
+initTooltips();
 history = new History(() => app.project, { limit: 100, onChange: () => { if (ctx.act) renderToolbar(ctx); } });
 ctx.history = history;
 structural(false); initLibrary(renderLeft);
