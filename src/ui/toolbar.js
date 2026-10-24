@@ -16,6 +16,7 @@ export function renderToolbar(ctx) {
   put(T,
     h('span', { class: 'logo' }, icon('mate', 20), h('span', {}, 'stl2', h('b', {}, 'mujoco'))),
     ib('import', 'Import STL parts  (or drop files into the 3D view)', act.import, { primary: true, act: 'import' }),
+    ib('assembly', 'Build from a STEP assembly – upload the STEP file and the STL files of its parts', act.openStep, { act: 'step' }),
     ib('mate', 'Mate – attach one part to another like a CAD assembly', act.mate, { primary: true, act: 'mate' }),
     h('span', { class: 'sep' }),
     ib('box', 'Add a box', () => act.addPrimitive('box'), { act: 'box' }),

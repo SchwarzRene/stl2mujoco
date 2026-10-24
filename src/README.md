@@ -17,7 +17,7 @@
 | 🧮 Physics | `mesh.js` `servo.js` `servo-specs.js` | mass, inertia, servo model |
 | 📤 Export | `mjcf.js` | MuJoCo XML |
 | 📚 Library | `library.js` `part-spec.js` | prefabs, datasheet specs |
-| 🏗️ STEP | `step-asm.js` `step-import.js` `stl-folder.js` | placements + robot.json |
+| 🏗️ STEP | `step-asm.js` `step-import.js` `stl-lookup.js` `stl-folder.js` | placements + robot.json, name matching (browser + Node) |
 | 📄 STL | `stl.js` `fs-reader.js` | parse / write, Node file access |
 
 ## 🎨 ui
@@ -28,6 +28,7 @@
 | `toolbar.js` `left-panel.js` `inspector.js` `library-panel.js` | 🧰 panels |
 | `assemble.js` | 🔗 Mate workflow |
 | `datasheet-dialog.js` | 📄 datasheet import |
+| `step-dialog.js` | 🏗️ build from STEP + STL upload |
 | `kit.js` `icons.js` `style.css` | 🧱 widgets, icons, theme |
 
 📏 Rules: SI units · poses in world space at joint zero · `core/` never touches the DOM.

@@ -2,6 +2,22 @@
 
 # Build a robot from a folder of STLs + a STEP assembly
 
+## 🖱️ In the editor
+
+Toolbar **assembly icon** (or **From STEP** on the start screen):
+
+| # | Step | |
+|---|---|---|
+| 1 | 📤 choose the `.stp` | shows parts + occurrences |
+| 2 | 🧱 add the STL files (or **Folder**) | names must match the STEP parts |
+| 3 | 📋 check the list | ✅ matched · 🔩 library servo · ⚠️ no STL (left out) |
+| 4 | 🤖 **Suggest** (or load your `robot.json`) | edit it in the box |
+| 5 | 🏗️ **Build** | robot appears in the editor, same result as the CLI |
+
+Everything runs in the browser, nothing is uploaded anywhere.
+
+## ⌨️ From the command line
+
 STL files carry no placement, but a CAD assembly does. Export the assembly as **STEP** (Solid Edge: Save As, `.stp`; other CAD systems work the same)
 and build the whole robot from it: exact part poses, library servos, repeated limbs cloned at their real positions.
 

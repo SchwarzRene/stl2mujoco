@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseStepAssembly } from '../src/core/step-asm.js';
 import { stlFolder, normalizeName } from '../src/core/stl-folder.js';
+import { createStlLookup } from '../src/core/stl-lookup.js';
 import { buildRobot, suggestConfig, instancesOf } from '../src/core/step-import.js';
 import { buildMJCF } from '../src/core/mjcf.js';
 import { boxMesh } from '../src/core/mesh.js';
@@ -114,5 +115,21 @@ describe('suggestConfig', () => {
     expect(config.limb.assembly).toBe('arm');
     expect(config.servoModel).toEqual({ library: 'servo_mg996r', case: 'Case', shaft: 'Shaft' });
     expect(config.limb.servos[0].output).toEqual(['LINK']);
+  });
+});
+
+describe('createStlLookup (shared by the CLI and the editor)', () => {
+  const load = (p) => new Float32Array([p.length]);
+  it('works on plain path lists and picks the file in the matching folder', () => {
+    const stl = createStlLookup(['a1_base/stl/3_lower_carapace.stl', 'stl/3_lower_carapace.stl', 'leg/Link.STL'], load);
+    expect(stl.find('3_lower_carapace', ['a1_base'])?.file).toBe('a1_base/stl/3_lower_carapace.stl');
+    expect(stl.ambiguous[0].candidates).toHaveLength(2);
+    expect(stl.find('link')?.file).toBe('leg/Link.STL');
+    expect(stl.find('nothing')).toBeNull();
+  });
+  it('overrides win and unknown overrides are an error', () => {
+    const stl = createStlLookup(['x/odd name.stl'], load, { part: 'odd name.stl' });
+    expect(stl.find('part')?.file).toBe('x/odd name.stl');
+    expect(() => createStlLookup(['x/a.stl'], load, { part: 'b.stl' }).find('part')).toThrow(/override/);
   });
 });

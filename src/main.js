@@ -10,6 +10,7 @@ import { History } from './core/history.js';
 import { createAssembler } from './ui/assemble.js';
 import { initLibrary, reloadLibrary } from './ui/library-panel.js';
 import { openDatasheetDialog } from './ui/datasheet-dialog.js';
+import { openStepDialog } from './ui/step-dialog.js';
 import { renderToolbar, unitScale } from './ui/toolbar.js';
 import { renderLeft as paintLeft, renderStart, renderGizmoBar } from './ui/left-panel.js';
 import { renderInspector } from './ui/inspector.js';
@@ -94,6 +95,12 @@ async function openProject(f) {
   try { app.project = await loadProjectZip(await f.arrayBuffer()); app.selected = null; history.reset(); structural(false); viewport.frameAll(); } catch (e) { flash(e.message); }
 }
 
+function builtFromStep(project, warnings) {
+  if (Object.keys(app.project.nodes).length && !confirm('Replace the current project with the robot built from the STEP file? Unsaved work will be lost.')) return false;
+  app.project = project; app.selected = null; history.reset(); structural(false); viewport.frameAll();
+  flash(`Built ${Object.keys(project.nodes).length} bodies from the STEP assembly${warnings.length ? `, ${warnings.length} warning(s): ${warnings[0]}` : ''}.`);
+}
+
 async function refreshFromFile(partId) {
   const part = app.project.parts[partId];
   try {
@@ -146,6 +153,7 @@ const act = {
   undo: () => doHistory('undo'),
   redo: () => doHistory('redo'),
   refreshFile: refreshFromFile,
+  openStep: () => openStepDialog({ flash, onBuilt: builtFromStep }),
   openDatasheet: () => openDatasheetDialog({ app, flash, onAdded: onLibraryAdded, reloadLibrary }),
 };
 Object.assign(ctx, { flash, select, structural, changed, act, renderLeft, rerender: renderRight, onLibraryAdded });

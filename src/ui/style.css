@@ -107,6 +107,8 @@ details { margin:4px 0; } summary { cursor:pointer; color:var(--dim); font-weigh
 .modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
 .modal-box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; width:min(560px, 94vw); max-height:90vh; overflow:auto; }
 .modal textarea { border-radius:6px; padding:6px; width:100%; }
+.step-box { width:min(680px, 94vw); } .step-table { max-height:150px; overflow:auto; margin:6px 0; display:grid; gap:2px; } .step-table .stat, .step-table .note { margin:0; } .step-table .unit { margin-left:auto; padding-left:12px; }
+.mono { font:12px/1.4 ui-monospace,monospace; }
 .log { background:#0e1116; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:180px; overflow:auto; font:12px/1.4 ui-monospace,monospace; white-space:pre-wrap; color:var(--dim); }
 h3 { margin:12px 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--dim); }
 button.primary:not(.ib) { background:var(--acc); color:#04121f; border-color:var(--acc); font-weight:600; }
