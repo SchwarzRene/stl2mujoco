@@ -37,4 +37,4 @@ node cli/convert.mjs out.s2m.zip out/robot                                      
 Limits: the base and the limb must be top-level assemblies; one limb type; servos come from the standard parts library; screws, flanges and other
 STEP parts without an STL are left out.
 
-A complete example is in the README: [Crabsy](../README.md#example-crabsy-hexapod), config in [examples/crabsy/robot.json](../examples/crabsy/robot.json).
+A complete example: [Crabsy](crabsy-example.md), config in [examples/crabsy/robot.json](../examples/crabsy/robot.json).

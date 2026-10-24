@@ -2,11 +2,18 @@
 
 # Development
 
-## Project layout
+## 🗺️ Project layout
 
-- `src/core` – DOM-free logic: STL, mass properties, project model, MJCF exporter, zip IO
-- `src/ui` – Three.js viewport, styles; `src/main.js` – panels and app logic
-- `cli/convert.mjs` – headless export; `cli/import-step.mjs` – STL folder + STEP assembly to project; `tests/` – Vitest + MuJoCo validation
+| Folder | 🎯 | 📖 |
+|---|---|---|
+| `src/` | 🧩 core (no DOM) + ui | [src/README.md](../src/README.md) |
+| `cli/` | 🖥️ headless convert + STEP import | [cli/README.md](../cli/README.md) |
+| `server/` | 🛰️ local API, datasheet jobs | [server/README.md](../server/README.md) |
+| `tools/` | 🛠️ part generators | [tools/README.md](../tools/README.md) |
+| `standard_parts/` | 📚 servo + fastener library | [standard_parts/README.md](../standard_parts/README.md) |
+| `tests/` | 🧪 Vitest + MuJoCo checks | [tests/README.md](../tests/README.md) |
+| `examples/` | 🦀 Crabsy | [examples/README.md](../examples/README.md) |
+| `docs/` | 📄 this documentation | [README](../README.md#documentation) |
 
 ## Tests
 
