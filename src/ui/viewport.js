@@ -2,12 +2,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { poseToMatrix, matrixToPose, applyWorldTransform, children, roots } from '../core/project.js';
+import { connectorLocalMatrix } from '../core/mates.js';
+import { snap } from '../core/features.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // CAD / MuJoCo convention: Z up
 
 export class Viewport {
-  constructor(el, { onPick, onEdit, onEditEnd }) {
-    this.el = el; this.onPick = onPick; this.onEdit = onEdit; this.onEditEnd = onEditEnd;
+  constructor(el, { onPick, onEdit, onEditEnd, onSurface, onMarker }) {
+    this.el = el; this.onPick = onPick; this.onEdit = onEdit; this.onEditEnd = onEditEnd; this.onSurface = onSurface; this.onMarker = onMarker;
+    this.pickMode = false; this.showAllConnectors = false; this.snapMode = 'auto'; this.markers = {}; this.activeConnectors = new Set();
     this.project = null; this.selected = null; this.preview = {};
     this.target = 'both'; this.withSubtree = false;
     this.objs = {}; this.geoms = {};
@@ -32,8 +35,20 @@ export class Viewport {
     r.domElement.addEventListener('pointerdown', (e) => { down = [e.clientX, e.clientY]; });
     r.domElement.addEventListener('pointerup', (e) => {
       if (!down || this.gizmo.dragging || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
-      this.#pick(e);
+      if (this.pickMode) this.#pickSurface(e, false); else this.#pick(e);
     });
+    let pending = false;
+    r.domElement.addEventListener('pointermove', (e) => {
+      if (!this.pickMode || pending || e.buttons) return;
+      pending = true; requestAnimationFrame(() => { pending = false; this.#pickSurface(e, true); });
+    });
+    this.preview3d = new THREE.Group(); this.preview3d.visible = false; this.scene.add(this.preview3d);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.003, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffd23f, depthTest: false }));
+    dot.renderOrder = 30; this.preview3d.add(dot);
+    this.previewArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(), 0.025, 0xffd23f, 0.007, 0.005);
+    this.previewArrow.line.material.depthTest = false; this.previewArrow.cone.material.depthTest = false; this.previewArrow.renderOrder = 30; this.preview3d.add(this.previewArrow);
+    this.previewRing = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 48), new THREE.MeshBasicMaterial({ color: 0xffd23f, side: THREE.DoubleSide, depthTest: false }));
+    this.previewRing.renderOrder = 30; this.preview3d.add(this.previewRing);
     new ResizeObserver(() => this.resize()).observe(el); this.resize();
     r.setAnimationLoop(() => { this.orbit.update(); r.render(this.scene, this.camera); });
   }
@@ -49,8 +64,15 @@ export class Viewport {
   /** Rebuild scene objects after structural changes. */
   setProject(project) {
     this.project = project;
-    for (const o of Object.values(this.objs)) { this.root.remove(o.group); }
+    for (const o of Object.values(this.objs)) {
+      this.root.remove(o.group);
+      if (o.mesh) { this.root.remove(o.mesh); o.mesh.material.dispose(); }
+    }
+    const live = new Set(Object.values(project.nodes).map((n) => n.part));
+    for (const [id, g] of Object.entries(this.geoms)) if (!live.has(id)) { g.g.dispose(); delete this.geoms[id]; }
     this.objs = {};
+    for (const m of Object.values(this.markers)) this.root.remove(m.group);
+    this.markers = {};
     for (const n of Object.values(project.nodes)) {
       const part = project.parts[n.part];
       const group = new THREE.Group(); // frame helper, positioned at node display frame
@@ -106,8 +128,54 @@ export class Viewport {
         o.mesh.material.emissive.set(n.id === this.selected ? 0x16324f : 0x000000);
       }
       o.axes.visible = n.id === this.selected || !o.mesh;
+      this.#updateMarkers(n, D[n.id] ?? poseToMatrix(n.frame));
     }
     this.#attachGizmo();
+  }
+
+  #updateMarkers(n, M) {
+    const show = this.showAllConnectors || n.id === this.selected;
+    const base = M.clone().multiply(poseToMatrix(n.frame).invert()).multiply(poseToMatrix(n.partPose));
+    for (const c of n.connectors ?? []) {
+      let m = this.markers[c.id];
+      if (!m) {
+        const group = new THREE.Group(); group.matrixAutoUpdate = false;
+        const axes = new THREE.AxesHelper(0.014); axes.material.depthTest = false; axes.renderOrder = 20; group.add(axes);
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.0022, 12, 8), new THREE.MeshBasicMaterial({ color: 0x35e0a1, depthTest: false })); sphere.renderOrder = 21; group.add(sphere);
+        const hit = new THREE.Mesh(new THREE.SphereGeometry(0.0045, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); hit.userData.connector = { node: n.id, id: c.id }; group.add(hit);
+        this.root.add(group); m = this.markers[c.id] = { group, sphere, hit };
+      }
+      m.group.visible = show;
+      m.group.matrix.copy(base).multiply(connectorLocalMatrix(c)); m.group.matrixWorldNeedsUpdate = true;
+      m.sphere.material.color.set(this.activeConnectors.has(c.id) ? 0xff6b6b : 0x35e0a1);
+    }
+  }
+
+  setPickMode(on, { showAll = on } = {}) { this.pickMode = on; this.showAllConnectors = showAll; if (!on) this.preview3d.visible = false; this.refresh(); }
+  highlightConnectors(ids) { this.activeConnectors = new Set(ids); this.refresh(); }
+
+  #pickSurface(e, hover) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const v = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    this.ray.setFromCamera(v, this.camera);
+    const hits = Object.values(this.markers).filter((m) => m.group.visible).map((m) => m.hit);
+    const mh = this.ray.intersectObjects(hits, false)[0];
+    if (mh) { this.preview3d.visible = false; if (!hover) this.onMarker?.(mh.object.userData.connector); return; }
+    const meshes = Object.values(this.objs).map((o) => o.mesh).filter(Boolean);
+    const hit = this.ray.intersectObjects(meshes, false)[0];
+    if (!hit) { this.preview3d.visible = false; return; }
+    const part = this.project.parts[this.project.nodes[hit.object.userData.node].part];
+    hit.object.updateMatrixWorld(true);
+    const local = hit.object.worldToLocal(hit.point.clone()).toArray();
+    const s = snap(part.positions, hit.faceIndex, local, this.snapMode);
+    const wp = hit.object.localToWorld(new THREE.Vector3(...s.pos));
+    const wn = new THREE.Vector3(...s.normal).transformDirection(hit.object.matrixWorld).normalize();
+    this.preview3d.position.copy(wp); this.preview3d.visible = true;
+    this.previewArrow.setDirection(wn);
+    this.previewRing.visible = s.kind === 'circle';
+    if (s.kind === 'circle') { const r = s.radius * part.unitScale; this.previewRing.scale.setScalar(r); this.previewRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), wn); }
+    this.snapKind = s.kind;
+    if (!hover) this.onSurface?.({ node: hit.object.userData.node, snap: s });
   }
 
   select(id) { this.selected = id; this.refresh(); }

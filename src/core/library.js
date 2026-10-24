@@ -47,7 +47,7 @@ export async function instantiate(project, reader, entry, { at = new Matrix4(), 
     node.color = b.color ?? node.color;
     node.collision = b.collision ?? 'mesh';
     node.mass = b.mass_kg != null ? { mode: 'explicit', mass: b.mass_kg, density: 1240 } : { mode: 'density', density: b.mass?.density ?? 1240, mass: 0.1 };
-    node.library = { id: def.id, body: b.name, group };
+    node.library = { id: def.id, body: b.name, group, status: def.dims_status ?? null, sources: def.sources ?? [] };
     if (b.joint) {
       node.joint = { ...node.joint, type: b.joint.type, axis: b.joint.axis ?? [0, 0, 1] };
       if (b.servo) { node.role = 'servo'; node.servo = newServoState(b.servo.preset); Object.assign(node.servo, b.servo.overrides ?? {}); applyServo(node); }

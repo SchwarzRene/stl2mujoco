@@ -7,8 +7,14 @@ import { ROLES, MATERIALS, SERVO_PRESETS, applyRole } from './core/presets.js';
 import { parseSTL } from './core/stl.js';
 import { nodeInertial } from './core/mjcf.js';
 import { saveProjectZip, loadProjectZip, exportMujocoZip } from './core/io.js';
+import { SERVO_SPECS } from './core/servo-specs.js';
+import { newServoState, deriveServo, applyServo } from './core/servo.js';
+import { reapplyMate } from './core/mates.js';
+import { Quaternion } from 'three';
+import { createAssembler } from './ui/assemble.js';
+import { initLibrary, renderLibrary } from './ui/library-panel.js';
 
-const app = { project: newProject('my_robot'), selected: null, tab: 'part', msg: '' };
+const app = { project: newProject('my_robot'), selected: null, tab: 'part', msg: '', leftTab: 'structure' };
 const $ = (s) => document.querySelector(s);
 const deg = (r) => (r * 180) / Math.PI, rad = (d) => (d * Math.PI) / 180;
 const round = (v, n = 3) => +Number(v).toFixed(n);
@@ -30,6 +36,11 @@ const viewport = new Viewport($('#viewport'), {
   onEdit: () => {},
   onEditEnd: () => renderRight(),
 });
+
+const assembler = createAssembler({ app, viewport, el: $('#assemble'), h, flash: (m) => flash(m), refresh: () => { renderLeft(); renderRight(); } });
+function onLibraryAdded(nodes) {
+  app.selected = nodes[0].id; app.leftTab = 'library'; structural(true); viewport.frameAll();
+}
 
 function select(id) { app.selected = id; viewport.select(id); renderLeft(); renderRight(); }
 function structural(keepSel = true) {
@@ -80,6 +91,7 @@ function renderToolbar() {
     h('select', { title: 'Unit of the STL files you import', onchange: (e) => (importUnit = e.target.value) },
       Object.keys(UNITS).map((u) => h('option', { value: u, selected: u === importUnit }, `STL in ${u}`))),
     h('button', { class: 'primary', onclick: () => pickFiles('.stl', true, importFiles) }, '＋ Import STL parts'),
+    h('button', { class: 'primary', title: 'Attach one part to another like a CAD assembly mate', onclick: () => assembler.start() }, '⚙ Mate parts'),
     h('button', { onclick: () => { const d = addPrimitive(app.project, 'box', [0.05, 0.05, 0.05]); addPrimitiveNode(d); } }, '＋ Box'),
     h('button', { onclick: () => { const d = addPrimitive(app.project, 'cylinder', [0.02, 0.05]); addPrimitiveNode(d); } }, '＋ Cylinder'),
     h('span', { style: 'flex:1' }),
@@ -115,7 +127,10 @@ function renderLeft() {
     for (const c of children(p, n.id)) walk(c, d + 1);
   };
   for (const r of roots(p)) walk(r, 0);
+  const tabs = h('div', { class: 'tabs' }, [['structure', 'Structure'], ['library', 'Parts library']].map(([k, t]) => h('button', { class: app.leftTab === k ? 'on' : '', onclick: () => { app.leftTab = k; renderLeft(); } }, t)));
+  if (app.leftTab === 'library') { L.replaceChildren(tabs, renderLibrary({ h, app, onAdded: onLibraryAdded, flash })); return; }
   L.replaceChildren(
+    tabs,
     h('h3', {}, 'Robot structure'),
     ...(items.length ? items : [h('div', { class: 'empty' }, 'Import your STL parts to start.', h('br'), 'The first part becomes the base; select a part and import more to attach them as children.')]),
     h('h3', {}, 'Project'),
@@ -176,8 +191,6 @@ function renderRight() {
     field('Role', h('select', { onchange: (e) => { applyRole(n, e.target.value); structural(true); } },
       Object.entries(ROLES).map(([k, r]) => h('option', { value: k, selected: k === n.role }, r.label)))),
     h('div', { class: 'help' }, ROLES[n.role]?.help ?? ''),
-    n.role === 'servo' ? field('Servo preset', h('select', { onchange: (e) => { applyRole(n, 'servo', SERVO_PRESETS[e.target.value]); renderRight(); } },
-      h('option', {}, '— choose —'), Object.keys(SERVO_PRESETS).map((k) => h('option', {}, k)))) : null,
     field('Parent', h('select', { onchange: (e) => { n.parent = e.target.value || null; structural(true); } },
       h('option', { value: '' }, '(world)'), parents.map((x) => h('option', { value: x.id, selected: x.id === n.parent }, x.name)))),
     field('Color', h('input', { type: 'color', value: n.color, oninput: (e) => { n.color = e.target.value; changed(); } })),
@@ -237,11 +250,13 @@ function renderRight() {
       inertial ? h('div', { class: 'stat' }, `Volume ${(inertial.volume * 1e6).toFixed(2)} cm³ · mass ${(inertial.mass * 1000).toFixed(1)} g`, h('br'),
         `COM (frame, mm): ${inertial.com.map((v) => (v * 1000).toFixed(1)).join(', ')}`, h('br'),
         `Principal-ish Ixx/Iyy/Izz (kg·mm²): ${inertial.fullinertia.slice(0, 3).map((v) => (v * 1e6).toFixed(1)).join(', ')}`) : h('div', { class: 'stat' }, inertErr),
-      h('div', { class: 'stat' }, `Mesh: ${part.stats.triangles.toLocaleString()} triangles, ${part.stats.watertight ? 'watertight ✔' : `NOT clean (${part.stats.openEdges} open / ${part.stats.nonManifoldEdges} non-manifold edges)`}`),
+      h('div', { class: 'stat' }, `Mesh: ${part.stats.triangles.toLocaleString()} triangles, ${part.stats.watertight ? 'watertight ✔' : part.trusted ? 'library mesh (stacked solids, mass is explicit) ✔' : `NOT clean (${part.stats.openEdges} open / ${part.stats.nonManifoldEdges} non-manifold edges)`}`),
       field('Collision', h('select', { onchange: (e) => (n.collision = e.target.value) }, h('option', { value: 'mesh', selected: n.collision === 'mesh' }, 'mesh (convex hull)'), h('option', { value: 'none', selected: n.collision === 'none' }, 'none (visual only)'))),
     );
   }
 
+  if (n.servo) sec.push(...servoSection(n));
+  sec.push(...connectorsSection(n), ...infoSection(n));
   sec.push(h('h3', {}, 'Copy / mirror'),
     h('div', { class: 'btns' },
       h('button', { onclick: () => { const c = parseInt(prompt('Total number of copies (including this one) around the world Z axis?', '6')); if (c > 1) { polarArray(p, n.id, { count: c, stepDeg: 360 / c }); structural(true); } } }, 'Circular array (Z)'),
@@ -252,7 +267,56 @@ function renderRight() {
   R.replaceChildren(...sec.flat().filter(Boolean));
 }
 
+function servoSection(n) {
+  const sv = n.servo, d = deriveServo(sv);
+  const upd = () => { applyServo(n); viewport.refresh(); renderRight(); };
+  const kgf = d.stall_torque / 0.0980665, rpm = (d.noload_speed * 60) / (2 * Math.PI), s60 = Math.PI / 3 / d.noload_speed;
+  return [
+    h('h3', {}, 'Servo model'),
+    field('Model', h('select', { onchange: (e) => { n.servo = newServoState(e.target.value); applyServo(n); viewport.refresh(); renderRight(); } },
+      Object.entries(SERVO_SPECS).map(([k, v]) => h('option', { value: k, selected: sv.preset === k }, v.name)))),
+    Object.keys(sv.voltages).length > 1
+      ? field('Supply', h('select', { onchange: (e) => { sv.voltage = e.target.value; upd(); } }, Object.keys(sv.voltages).map((v) => h('option', { value: v, selected: v === sv.voltage }, `${v} V`))))
+      : field('Supply', `${sv.voltage} V`),
+    h('div', { class: 'stat' }, `Stall torque ${d.stall_torque.toFixed(3)} N·m (${kgf.toFixed(1)} kgf·cm)`, h('br'), `No-load speed ${d.noload_speed.toFixed(2)} rad/s (${rpm.toFixed(0)} rpm, ${s60.toFixed(3)} s/60°)`),
+    h('div', { class: 'row two' }, h('label', {}, 'Travel °'), numInput(sv.range_deg[0], (v) => { sv.range_deg[0] = v; upd(); }, 5), numInput(sv.range_deg[1], (v) => { sv.range_deg[1] = v; upd(); }, 5)),
+    field('Full-torque error (rad)', numInput(sv.kp_sat_rad, (v) => { sv.kp_sat_rad = Math.max(0.01, v); upd(); }, 0.01)),
+    field('Rotor inertia (kg·m²)', numInput(sv.armature, (v) => { sv.armature = Math.max(0, v); upd(); }, 0.001)),
+    field('Static friction (×τ)', numInput(sv.frictionloss_frac, (v) => { sv.frictionloss_frac = Math.max(0, v); upd(); }, 0.01)),
+    h('div', { class: 'stat' }, `kp ${d.kp.toFixed(2)} N·m/rad · kv ${d.kv.toFixed(3)} · back-EMF damping ${d.damping.toFixed(3)} N·m·s/rad`),
+    h('div', { class: 'help' }, 'Torque is clipped at the stall torque and falls linearly to zero at the no-load speed (damping = stall torque ÷ no-load speed). Inertia and friction are estimates – tune them against your servo.'),
+  ];
+}
+
+function connectorsSection(n) {
+  const out = [h('h3', {}, `Connectors (${n.connectors?.length ?? 0})`)];
+  for (const c of n.connectors ?? []) {
+    out.push(h('div', { class: 'conn' },
+      h('input', { type: 'text', value: c.name, onchange: (e) => (c.name = e.target.value) }),
+      h('button', { title: 'Flip normal / Z axis', onclick: () => { const q = new Quaternion(...c.quat).multiply(new Quaternion(1, 0, 0, 0)); c.quat = [q.x, q.y, q.z, q.w]; changed(); } }, '⇅'),
+      h('button', { title: 'Delete connector', class: 'danger', onclick: () => { n.connectors = n.connectors.filter((x) => x !== c); viewport.setProject(app.project); renderRight(); } }, '✕')));
+  }
+  out.push(h('div', { class: 'help' }, 'Connectors are mounting frames (green markers, Z = surface normal / axis). Create them by clicking in “Mate parts”.'));
+  return out;
+}
+
+function infoSection(n) {
+  const out = [];
+  if (n.mate) {
+    const t = app.project.nodes[n.mate.targetNode];
+    out.push(h('h3', {}, 'Assembly'), h('div', { class: 'stat' }, `Mated to “${t?.name ?? '?'}” · ${n.mate.type}${n.mate.flip ? ' · flipped' : ''}`),
+      h('button', { onclick: () => { try { reapplyMate(app.project, n.id); viewport.setProject(app.project); renderRight(); } catch (e) { flash(e.message); } } }, 'Re-snap to mate'));
+  }
+  if (n.library) {
+    out.push(h('h3', {}, 'Library part'));
+    for (const [k, v] of Object.entries(n.library.status ?? {})) out.push(h('div', { class: /verify|estimate/.test(v) ? 'note' : 'stat' }, `${k.replace(/_/g, ' ')}: ${v}`));
+    for (const src of n.library.sources ?? []) out.push(h('div', { class: 'stat' }, h('a', { href: src.url, target: '_blank', rel: 'noopener', style: 'color:var(--acc)' }, src.title)));
+  }
+  return out;
+}
+
 addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && assembler.active) assembler.stop(true);
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
   if (e.key === 'w') { viewport.setMode('translate'); renderRight(); }
   if (e.key === 'e') { viewport.setMode('rotate'); renderRight(); }
@@ -260,5 +324,5 @@ addEventListener('keydown', (e) => {
 });
 
 $('#hint').textContent = HINT;
-renderToolbar(); structural(false);
-window.s2m = { app, viewport, importFiles, structural, select }; // handy for debugging / tests
+renderToolbar(); structural(false); initLibrary(renderLeft);
+window.s2m = { app, viewport, importFiles, structural, select, assembler }; // handy for debugging / tests
