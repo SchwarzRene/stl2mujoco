@@ -121,7 +121,7 @@ function refreshSection(n) {
 }
 
 function pickFiles(accept, multiple, cb) {
-  const i = h('input', { type: 'file', accept, multiple, onchange: () => cb([...i.files]) });
+  const i = h('input', { type: 'file', accept, multiple, onchange: () => cb([...i.files]), oncancel: () => cb([]) });
   i.click();
 }
 function download(name, bytes, type = 'application/zip') {

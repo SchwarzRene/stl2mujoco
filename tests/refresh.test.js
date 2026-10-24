@@ -94,4 +94,22 @@ describe('refresh part from updated STL', () => {
     expect(inner.pos[0]).toBeCloseTo(0.056, 6); expect(inner.pos[2]).toBeCloseTo(0.0026, 6);
     expect(outer.pos[0]).toBeCloseTo(0.056, 6); expect(outer.pos[2]).toBeCloseTo(0.003, 6);
   });
+
+  it('refreshes mirrored copies together with their source part', async () => {
+    const { p, bar, barN } = assembly(40);
+    const { mirrorSubtree } = await import('../src/core/project.js');
+    const [mBar] = mirrorSubtree(p, barN.id, 1);
+    expect(p.parts[mBar.part].mirrorOf.part).toBe(bar.id);
+    refreshPart(p, bar.id, plate(60));
+    expect(bbox(p.parts[mBar.part].positions).max[0]).toBeCloseTo(60, 3); // mirrored mesh follows
+    const hole = mBar.connectors.find((c) => c.name === 'hole_right');
+    expect(hole.pos[0]).toBeCloseTo(0.056, 6);
+  });
+
+  it('refuses a mesh in the wrong unit', () => {
+    const { p, bar } = assembly(40);
+    const tiny = plate(40).map((v) => v / 1000);
+    expect(() => refreshPart(p, bar.id, tiny)).toThrow(/wrong file or wrong unit/);
+    expect(bbox(p.parts[bar.id].positions).max[0]).toBeCloseTo(40, 3); // untouched
+  });
 });

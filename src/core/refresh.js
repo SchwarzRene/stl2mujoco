@@ -5,7 +5,7 @@
 //   • the expected position keeps the offset from the NEAREST end of the bounding box on every axis,
 //     so lengthening a link moves the holes at the far end with that end and keeps the near holes in place.
 import { Quaternion, Vector3 } from 'three';
-import { bbox, meshQuality, orientOutward } from './mesh.js';
+import { bbox, meshQuality, orientOutward, mirrorMesh } from './mesh.js';
 import { analyze, findCircles, faceRegion } from './features.js';
 import { reapplyMate } from './mates.js';
 
@@ -87,6 +87,11 @@ export function refreshPart(project, partId, newPositionsRaw) {
   if (!part) throw new Error('Part not found');
   const oldPos = part.positions, newPos = orientOutward(newPositionsRaw);
   const ob = bbox(oldPos), nb = bbox(newPos), k = part.unitScale;
+  const diag = (b) => Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+  const ratio = diag(nb) / (diag(ob) || 1);
+  if (!(ratio > 0.25 && ratio < 4)) {
+    throw new Error(`The new mesh is ×${ratio.toPrecision(3)} the size of "${part.name}" – wrong file or wrong unit? (a longer link changes the size by far less than ×4)`);
+  }
   const report = { part: part.name, items: [], resnapped: [], errors: [], bbox: { old: ob, new: nb } };
   const users = Object.values(project.nodes).filter((n) => n.part === partId);
   const matches = [];
@@ -116,9 +121,15 @@ export function refreshPart(project, partId, newPositionsRaw) {
     if (lost(mover, mover.mate.moverConn) || lost(t, mover.mate.targetConn)) { report.errors.push(`${mover.name}: a connector of its mate was not found in the new mesh – not re-snapped`); return false; }
     return true;
   };
+  // mirrored copies own a mirrored mesh: refresh them from the mirrored new mesh
+  const mirrors = Object.values(project.parts).filter((q) => q.mirrorOf?.part === partId);
   const userIds = new Set(users.map((u) => u.id));
   // own mates first (the refreshed node returns to its target), then parts attached to refreshed nodes
   for (const u of users) if (u.mate && involved(u)) snap(u);
   for (const m of Object.values(project.nodes)) if (m.mate && userIds.has(m.mate.targetNode) && !userIds.has(m.id) && involved(m)) snap(m);
+  for (const q of mirrors) {
+    const r = refreshPart(project, q.id, mirrorMesh(newPos, q.mirrorOf.axis));
+    report.items.push(...r.items); report.resnapped.push(...r.resnapped); report.errors.push(...r.errors);
+  }
   return report;
 }
