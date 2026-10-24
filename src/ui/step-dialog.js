@@ -19,15 +19,21 @@ export function openStepDialog({ flash, onBuilt }) {
   const pick = h('input', { type: 'file', accept: '.stl', style: 'display:none', 'data-act': 'part-file' });
   const buffers = new Map();                              // path → ArrayBuffer (read once, parsed on demand)
 
-  const stepIn = h('input', { type: 'file', accept: '.stp,.step', 'data-act': 'step-file', onchange: () => loadStep() });
-  const stlIn = h('input', { type: 'file', multiple: true, accept: '.stl', 'data-act': 'stl-files', onchange: () => addStl(stlIn) });
+  const stepIn = h('input', { type: 'file', accept: '.stp,.step', style: 'display:none', 'data-act': 'step-file', onchange: () => loadStep() });
+  const stlIn = h('input', { type: 'file', multiple: true, accept: '.stl', style: 'display:none', 'data-act': 'stl-files', onchange: () => addStl(stlIn) });
   const dirIn = h('input', { type: 'file', multiple: true, webkitdirectory: true, 'data-act': 'stl-folder', style: 'display:none', onchange: () => addStl(dirIn) });
-  const jsonIn = h('input', { type: 'file', accept: '.json', 'data-act': 'config-file', onchange: () => loadJson() });
+  const jsonIn = h('input', { type: 'file', accept: '.json', style: 'display:none', 'data-act': 'config-file', onchange: () => loadJson() });
   const cfg = h('textarea', { class: 'mono', rows: 12, spellcheck: false, placeholder: 'robot.json – click “Suggest”, or load your own', 'data-act': 'config', oninput: () => refresh() });
   const matches = h('div', { class: 'step-table' });
   const status = h('div', { class: 'stat' });
   const stepInfo = h('div', { class: 'stat' });
   const stlInfo = h('div', { class: 'stat' });
+  // the browser's own file inputs stay hidden; these buttons open them and show what was chosen
+  const fileName = () => h('span', { class: 'file-name' }, 'no file chosen');
+  const stepName = fileName(), jsonName = fileName();
+  const stepBtn = ib('assembly', 'Choose the STEP file exported from your CAD', () => stepIn.click(), { primary: true, label: 'Choose STEP file', act: 'pick-step' });
+  const stlBtn = ib('box', 'Choose STL files (select several at once)', () => stlIn.click(), { primary: true, label: 'Choose STL files', act: 'pick-stl' });
+  const jsonBtn = ib('file', 'Load a robot.json you already have', () => jsonIn.click(), { label: 'Load robot.json', act: 'pick-json' });
   const partsInfo = h('div', { class: 'stat', 'data-act': 'parts-info' });
   const suggest = ib('sparkles', 'Write a starting robot.json from the assembly (check it against your CAD)', () => doSuggest(), { label: 'Suggest', act: 'suggest', disabled: true });
   const build = ib('assembly', 'Build the robot and load it into the editor', () => doBuild(), { primary: true, label: 'Build', act: 'build', disabled: true });
@@ -49,6 +55,7 @@ export function openStepDialog({ flash, onBuilt }) {
 
   async function loadStep() {
     const f = stepIn.files[0]; if (!f) return;
+    stepName.textContent = f.name;
     stepInfo.replaceChildren(icon('info', 14), 'reading…');
     try {
       S.asm = parseStepAssembly(await f.text());
@@ -68,6 +75,7 @@ export function openStepDialog({ flash, onBuilt }) {
   }
   async function loadJson() {
     const f = jsonIn.files[0]; if (!f) return;
+    jsonName.textContent = f.name;
     cfg.value = await f.text(); refresh();
   }
 
@@ -136,15 +144,13 @@ export function openStepDialog({ flash, onBuilt }) {
   const head = (n, ic, title, hint) => h('div', { class: 'step-h' }, h('span', { class: 'step-n' }, n), icon(ic, 17), h('b', {}, title), h('span', { class: 'step-hint' }, hint));
   box.replaceChildren(t,
     head(1, 'assembly', 'STEP assembly', 'the whole assembly exported from your CAD (.stp / .step)'),
-    h('div', { class: 'row' }, icon('file', 18), stepIn), stepInfo,
+    h('div', { class: 'btns' }, stepBtn, stepName, stepIn), stepInfo,
     head(2, 'box', 'STL files of the parts', 'pick several files, or search a whole folder; names are matched to the STEP parts'),
-    h('div', { class: 'row' }, icon('box', 18), stlIn),
-    h('div', { class: 'btns' }, ib('open', 'Search a whole folder (including sub-folders) for the parts of the list below', () => dirIn.click(), { label: 'Search a folder', act: 'pick-folder' }), dirIn, stlInfo),
+    h('div', { class: 'btns' }, stlBtn, ib('open', 'Search a whole folder (including sub-folders) for the parts of the list below', () => dirIn.click(), { label: 'Search a folder', act: 'pick-folder' }), stlIn, dirIn, stlInfo),
     head(3, 'tree', 'Parts in the STEP', 'check that every part has its STL – pick one per part with the import icon'),
     partsInfo, matches, pick,
     head(4, 'sliders', 'robot.json', 'which part sits on which servo – optional – without one, Build derives it from the STEP file; Suggest shows it first'),
-    h('div', { class: 'row' }, icon('file', 18), jsonIn),
-    h('div', { class: 'btns' }, suggest),
+    h('div', { class: 'btns' }, jsonBtn, jsonName, jsonIn, suggest),
     cfg,
     status,
     head(5, 'export', 'Build', 'loads the robot into the editor; check the robot.json against your CAD first'),
