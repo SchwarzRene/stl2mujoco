@@ -1,4 +1,6 @@
-# stl2mujoco
+<p align="center"><img src="docs/images/logo.png" alt="stl2mujoco logo: a triangle-mesh block joined by a hinge to a solid block" width="160"></p>
+
+<h1 align="center">stl2mujoco</h1>
 
 A browser-based visual editor that turns CAD parts (STL) into a **MuJoCo** robot model.
 
