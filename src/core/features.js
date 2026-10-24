@@ -169,7 +169,7 @@ export function snap(positions, t, point, mode = 'auto') {
     const d = sub(point, c.center), along = Math.abs(dot(d, c.normal)), inplane = Math.hypot(...sub(d, c.normal.map((x) => x * dot(d, c.normal))));
     if (dot(c.normal, n) < 0.9 && dot(c.normal, n) > -0.9) { if (along > 0.35 * c.radius + 1e-6) continue; }
     if (along > Math.max(0.35 * c.radius, a.diag * 0.002) || inplane > 1.8 * c.radius + a.diag * 0.002) continue;
-    const s = inplane / c.radius; if (s < bs) { bs = s; bestC = c; }
+    const s = (inplane + 2 * along) / c.radius; if (s < bs) { bs = s; bestC = c; } // depth counts: neighbouring rims can be <0.5 mm apart
   }
   if (bestC) return { kind: 'circle', pos: [...bestC.center], normal: [...bestC.normal], radius: bestC.radius };
   const f = faceRegion(positions, t);
