@@ -18,8 +18,8 @@ import numpy as np
 # ---- GAIT ------------------------------------------------------------------------------------------------
 PERIOD = 1.2          # seconds per step cycle
 SWING = 0.35          # rad, how far the coxa (hip) swings forwards/backwards
-LIFT = 0.45           # rad, femur lift while a leg is in the air
-TIBIA_FOLLOW = -0.6   # tibia angle added per rad of femur lift (keeps the foot roughly level)
+LIFT = 0.55           # rad, femur lift while a leg is in the air
+TIBIA_FOLLOW = 1.2    # tibia angle per rad of femur lift – large, so the lower joint visibly moves
 COXA_SIGN, FEMUR_SIGN = -1.0, -1.0  # the exported joint axes follow the CAD; flip both if a changed model walks backwards
 LEG_ANGLES = [-90 + 60 * i for i in range(6)]  # mounting angle of each leg around the body (deg, leg 1 at -Y)
 TRIPOD = [0, 1, 0, 1, 0, 1]                    # legs with the same value step together
