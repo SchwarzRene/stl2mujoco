@@ -14,9 +14,7 @@ button { cursor:pointer; } button:disabled { opacity:.4; cursor:default; }
 .ib.danger:hover:not(:disabled) { color:var(--err); background:#3a2226; }
 .ib.lbl { padding:0 10px; font-weight:600; }
 [data-tip] { position:relative; }
-[data-tip]:hover::after { content:attr(data-tip); position:absolute; z-index:60; top:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#0b0e12; color:var(--text); border:1px solid var(--line); padding:4px 8px; border-radius:6px; font:12px/1.35 system-ui; font-weight:400; white-space:pre-line; width:max-content; max-width:260px; text-align:left; pointer-events:none; box-shadow:0 6px 18px rgba(0,0,0,.5); }
-#right [data-tip]:hover::after, .tip-l:hover::after { left:auto; right:0; transform:none; }
-#left [data-tip]:hover::after { left:0; transform:none; }
+#tip { position:fixed; z-index:100; display:none; background:#0b0e12; color:var(--text); border:1px solid var(--line); padding:4px 8px; border-radius:6px; font:12px/1.35 system-ui; font-weight:400; white-space:pre-line; max-width:260px; text-align:left; pointer-events:none; box-shadow:0 6px 18px rgba(0,0,0,.5); }
 input[type=number], input[type=text], select, textarea { background:var(--panel2); }
 input[type=number] { width:100%; min-width:0; padding:3px 6px; -moz-appearance:textfield; } input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 input[type=color] { padding:0; height:26px; width:40px; } input[type=checkbox] { width:auto; accent-color:var(--acc); } input[type=range] { width:100%; padding:0; accent-color:var(--acc); }
