@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "units": "mm",
+  "category": "Fasteners",
+  "dims_status": {
+    "dimensions": "standard nominal values",
+    "thread": "plain cylinder of 0.92·d (effective diameter)"
+  },
+  "sources": [
+    {
+      "title": "ISO/DIN dimension tables (DIN 912, DIN 934, DIN 125-A)",
+      "url": "https://www.dinstandards.com"
+    }
+  ],
+  "id": "din912_m4x40",
+  "name": "Socket head cap screw DIN 912 M4×40",
+  "description": "Origin on the underside of the head, shank along −Z.",
+  "trust_mesh": true,
+  "bodies": [
+    {
+      "name": "screw",
+      "mesh": "screw.stl",
+      "color": "#8d9298",
+      "mass": {
+        "mode": "density",
+        "density": 7850
+      },
+      "collision": "none",
+      "connectors": [
+        {
+          "name": "under_head",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ],
+          "note": "mate to a plate surface/hole: shank goes into the hole"
+        },
+        {
+          "name": "head_top",
+          "pos_mm": [
+            0,
+            0,
+            4
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "tip",
+          "pos_mm": [
+            0,
+            0,
+            -40
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        }
+      ]
+    }
+  ]
+}
