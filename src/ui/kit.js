@@ -9,6 +9,8 @@ export function h(tag, props = {}, ...kids) {
     else if (v === true) el.setAttribute(k, '');
     else if (v !== false && v != null) el.setAttribute(k, v);
   }
+  // ::after tooltips cannot be drawn on replaced elements, so give those the native title as well
+  if (props?.['data-tip'] && /^(select|input|textarea)$/.test(tag)) el.setAttribute('title', String(props['data-tip']).replace(/\n/g, ' – '));
   for (const k of kids.flat(Infinity)) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(k));
   return el;
 }

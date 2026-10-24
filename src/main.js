@@ -75,6 +75,7 @@ async function importClick() {
 }
 
 async function openProject(f) {
+  if (Object.keys(app.project.nodes).length && !confirm('Replace the current project? Unsaved work will be lost.')) return;
   try { app.project = await loadProjectZip(await f.arrayBuffer()); app.selected = null; structural(false); viewport.frameAll(); } catch (e) { flash(e.message); }
 }
 
@@ -138,7 +139,7 @@ const assembler = createAssembler({ app, viewport, el: $('#assemble'), flash, re
 /* ------------------------------ input ------------------------------ */
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { if (assembler.active) assembler.stop(true); if (app.pop) { app.pop = null; renderToolbar(ctx); } }
-  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName) || document.querySelector('.modal')) return; // no shortcuts while typing or behind a dialog
   if ((e.ctrlKey || e.metaKey) && e.key === 'c') act.copy();
   if ((e.ctrlKey || e.metaKey) && e.key === 'v') act.paste(false);
   if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); act.duplicate(); }
