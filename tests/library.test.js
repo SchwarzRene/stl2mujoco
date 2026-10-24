@@ -63,6 +63,18 @@ describe('standard parts library', () => {
     expect(info.overload_position).toBeGreaterThan(info.range[1] * 0.99);          // 150 % of stall is overpowered
   });
 
+  it('every standard part instantiates, exports and loads in MuJoCo with positive mass', async () => {
+    const p = newProject('all'); p.settings.floor = false;
+    const idx = await loadIndex(reader);
+    for (const e of idx) await instantiate(p, reader, e, { at: new Matrix4().makeTranslation(0, 0, 0), count: 0 });
+    // free-standing roots are welded to the world in this smoke test; that is fine for loading
+    const res = buildMJCF(p, { force: true });
+    const info = run(res, 'tests/validate_mjcf.py');
+    expect(info.nbody).toBeGreaterThan(idx.length);
+    expect(info.total_mass).toBeGreaterThan(0.2);
+    for (const r of res.report) expect(r.mass).toBeGreaterThan(0);
+  });
+
   it('fastener mass matches steel density × volume', async () => {
     const p = newProject('f');
     const idx = await loadIndex(reader);
