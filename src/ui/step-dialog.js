@@ -127,14 +127,21 @@ export function openStepDialog({ flash, onBuilt }) {
   }
 
   const t = h('div', { class: 'card-title' }, h('span', {}, icon('assembly', 18), 'Build from STEP'), ib('close', 'Close', close));
+  const head = (n, ic, title, hint) => h('div', { class: 'step-h' }, h('span', { class: 'step-n' }, n), icon(ic, 17), h('b', {}, title), h('span', { class: 'step-hint' }, hint));
   box.replaceChildren(t,
-    h('div', { class: 'row', 'data-tip': 'The assembly exported from your CAD as STEP (.stp / .step)' }, icon('assembly', 18), stepIn), stepInfo,
-    h('div', { class: 'row', 'data-tip': 'STL files of the parts – matched to the STEP parts by name (case and _ - are ignored). Or pick a file for one part in the list below.' }, icon('box', 18), stlIn),
-    h('div', { class: 'btns' }, ib('open', 'Search a whole folder (including sub-folders) for the parts of the list below', () => dirIn.click(), { label: 'Folder', act: 'pick-folder' }), dirIn, stlInfo),
-    h('div', { class: 'row', 'data-tip': 'Optional: a robot.json you already have' }, icon('file', 18), jsonIn),
+    head(1, 'assembly', 'STEP assembly', 'the whole assembly exported from your CAD (.stp / .step)'),
+    h('div', { class: 'row' }, icon('file', 18), stepIn), stepInfo,
+    head(2, 'box', 'STL files of the parts', 'pick several files, or search a whole folder; names are matched to the STEP parts'),
+    h('div', { class: 'row' }, icon('box', 18), stlIn),
+    h('div', { class: 'btns' }, ib('open', 'Search a whole folder (including sub-folders) for the parts of the list below', () => dirIn.click(), { label: 'Search a folder', act: 'pick-folder' }), dirIn, stlInfo),
+    head(3, 'tree', 'Parts in the STEP', 'check that every part has its STL – pick one per part with the import icon'),
     partsInfo, matches, pick,
+    head(4, 'sliders', 'robot.json', 'which part sits on which servo – write a first version with Suggest, or load your own file (optional)'),
+    h('div', { class: 'row' }, icon('file', 18), jsonIn),
+    h('div', { class: 'btns' }, suggest),
     cfg,
     status,
-    h('div', { class: 'btns' }, suggest, build, h('span', { class: 'unit' }, 'check the robot.json against your CAD')));
+    head(5, 'export', 'Build', 'loads the robot into the editor; check the robot.json against your CAD first'),
+    h('div', { class: 'btns' }, build));
   refresh();
 }
