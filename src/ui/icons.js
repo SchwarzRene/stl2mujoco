@@ -26,6 +26,7 @@ const ICONS = {
   info: C(12, 12, 9) + P('M12 11v5M12 7.6v.4'),
   chevron: P('M9 6l6 6-6 6'),
   undo: P('M9 14L4 9l5-5') + P('M4 9h10a6 6 0 0 1 0 12h-3'),
+  redo: P('M15 14l5-5-5-5') + P('M20 9H10a6 6 0 0 0 0 12h3'),
   refresh: P('M20 11a8 8 0 0 0-14.5-4M4 5v4h4') + P('M4 13a8 8 0 0 0 14.5 4M20 19v-4h-4'),
   trash: P('M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3'),
   flip: P('M7 4L4 7l3 3M4 7h13M17 20l3-3-3-3M20 17H7'),

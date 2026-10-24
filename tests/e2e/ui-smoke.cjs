@@ -53,6 +53,36 @@ let failed = 0; const ok = (c, m) => { if (!c) failed++; console.log((c ? 'PASS 
     const n = Object.values(app.project.nodes).find(n => n.part === part.id); window.s2m.select(n.id); app.open.file = true; window.s2m.ctx.rerender(); }, longer);
   await pg.click('[data-tip^="Reload from the linked file"]'); await pg.waitForTimeout(1000);
   ok(/Refreshed/.test(await pg.locator('#hint').innerText()), 'refresh from linked file reports');
+  // ---- undo / redo (fresh page) ----
+  const pu = await b.newPage({ viewport: { width: 1500, height: 900 } });
+  pu.on('pageerror', e => errs.push('PAGEERR ' + e.message));
+  await pu.goto(BASE + '/'); await pu.waitForTimeout(500);
+  const count = () => pu.evaluate(() => Object.keys(window.s2m.app.project.nodes).length);
+  const settle = () => pu.waitForTimeout(550);                   // history flushes ~300 ms after the last activity
+  ok(await pu.locator('[data-act="undo"]').isDisabled() && await pu.locator('[data-act="redo"]').isDisabled(), 'undo/redo icons start disabled');
+  await pu.click('[data-act="box"]'); await settle();
+  ok(await count() === 1 && !(await pu.locator('[data-act="undo"]').isDisabled()), 'adding a box enables undo');
+  await pu.keyboard.press('Delete'); await settle(); ok(await count() === 0, 'Delete removes the part');
+  await pu.keyboard.press('Control+z'); await settle(); ok(await count() === 1, 'Ctrl+Z brings the deleted part back');
+  await pu.keyboard.press('Control+Shift+Z'); await settle(); ok(await count() === 0, 'Ctrl+Shift+Z redoes the delete');
+  await pu.keyboard.press('Control+z'); await settle();
+  await pu.click('[data-act="undo"]'); await settle(); ok(await count() === 0, 'undo icon undoes the add');
+  ok(!(await pu.locator('[data-act="redo"]').isDisabled()), 'redo icon is enabled after undo');
+  await pu.click('[data-act="redo"]'); await settle(); ok(await count() === 1, 'redo icon redoes the add');
+  // typed number edit
+  await pu.evaluate(() => window.s2m.select(Object.values(window.s2m.app.project.nodes)[0].id));
+  const x0 = await pu.evaluate(() => Object.values(window.s2m.app.project.nodes)[0].partPose.pos[0]);
+  const inp = pu.locator('#right .xyz input').first(); await inp.fill('37'); await inp.press('Tab'); await settle();
+  ok(await pu.evaluate(() => Object.values(window.s2m.app.project.nodes)[0].partPose.pos[0]) === 0.037, 'typing a position moves the part');
+  await pu.click('body', { position: { x: 700, y: 600 } }); await pu.keyboard.press('Control+z'); await settle();
+  ok(await pu.evaluate(() => Object.values(window.s2m.app.project.nodes)[0].partPose.pos[0]) === x0, 'Ctrl+Z restores the typed position');
+  // gizmo-style edit: several pointer moves while the button is held = ONE undo step
+  const steps0 = await pu.evaluate(() => window.s2m.ctx.history.undoStack.length);
+  await pu.mouse.move(700, 500); await pu.mouse.down();
+  for (let i = 1; i <= 5; i++) { await pu.evaluate((d) => { const n = Object.values(window.s2m.app.project.nodes)[0]; n.partPose.pos[0] += d; n.frame.pos[0] += d; window.s2m.viewport.refresh(); }, 0.002); await pu.mouse.move(700 + i * 5, 500); await pu.waitForTimeout(120); }
+  await pu.mouse.up(); await settle();
+  ok(await pu.evaluate(() => window.s2m.ctx.history.undoStack.length) === steps0 + 1, 'a whole drag is one undo step');
+  await pu.close();
   console.log('errors', JSON.stringify(errs)); if (errs.length || failed) process.exitCode = 1;
   await b.close();
 })();

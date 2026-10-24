@@ -6,6 +6,7 @@ import { parseSTL } from './core/stl.js';
 import { saveProjectZip, loadProjectZip, exportMujocoZip } from './core/io.js';
 import { addConnector, applyMate } from './core/mates.js';
 import { refreshPart } from './core/refresh.js';
+import { History } from './core/history.js';
 import { createAssembler } from './ui/assemble.js';
 import { initLibrary, reloadLibrary } from './ui/library-panel.js';
 import { openDatasheetDialog } from './ui/datasheet-dialog.js';
@@ -20,24 +21,38 @@ const app = {
   dupOffset: [0, 60, 0], arr: { count: 3, step: [60, 0, 0] },
   open: {}, fold: {}, // remembered open/closed state of inspector sections and "advanced" folds
 };
-const HINT = '⟲ drag: orbit   ·   right-drag: pan   ·   wheel: zoom   ·   W move   ·   E rotate   ·   M mate   ·   Del delete';
+const HINT = '⟲ drag: orbit   ·   right-drag: pan   ·   wheel: zoom   ·   W move   ·   E rotate   ·   M mate   ·   Del delete   ·   Ctrl+Z undo';
 const ctx = { app };
 
-const viewport = new Viewport($('#viewport'), { onPick: (id) => select(id), onEdit: () => {}, onEditEnd: () => renderRight() });
+const viewport = new Viewport($('#viewport'), { onPick: (id) => select(id), onEdit: () => {}, onEditEnd: () => { renderRight(); scheduleHistory(); } });
 ctx.viewport = viewport;
 const node = () => app.project.nodes[app.selected];
+
+/* ------------------------------ undo / redo ------------------------------ */
+// The history diffs the project against its last baseline; we only have to tell it when a burst of activity is over.
+let history = null, hTimer = null, pointerDown = false;
+function scheduleHistory() {
+  clearTimeout(hTimer);
+  hTimer = setTimeout(function tick() { if (pointerDown) { hTimer = setTimeout(tick, 150); return; } history?.flush(); }, 300);
+}
+function doHistory(kind) {
+  if (assembler.active) assembler.stop(true);
+  if (!(kind === 'undo' ? history.undo() : history.redo())) { flash(kind === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.'); return; }
+  viewport.preview = {};
+  structural(true); flash(kind === 'undo' ? 'Undone.' : 'Redone.');
+}
 
 /* ------------------------------ rendering ------------------------------ */
 const renderLeft = () => { paintLeft(ctx); renderStart(ctx); };
 const renderRight = () => renderInspector(ctx);
 function renderAll() { renderToolbar(ctx); renderLeft(); renderRight(); renderGizmoBar(ctx); }
 let statusTimer = null;
-function changed() { viewport.refresh(); clearTimeout(statusTimer); statusTimer = setTimeout(() => renderToolbar(ctx), 400); }
+function changed() { viewport.refresh(); scheduleHistory(); clearTimeout(statusTimer); statusTimer = setTimeout(() => renderToolbar(ctx), 400); }
 function select(id) { app.selected = id; viewport.select(id); renderLeft(); renderRight(); renderGizmoBar(ctx); }
 function structural(keepSel = true) {
   viewport.setProject(app.project);
   if (!keepSel || !app.project.nodes[app.selected]) app.selected = null;
-  viewport.select(app.selected); renderAll();
+  viewport.select(app.selected); renderAll(); scheduleHistory();
 }
 function flash(msg) { app.msg = msg; $('#hint').textContent = msg; setTimeout(() => { if (app.msg === msg) $('#hint').textContent = HINT; }, 7000); }
 const download = (name, bytes, type = 'application/zip') => { const a = h('a', { href: URL.createObjectURL(new Blob([bytes], { type })), download: name }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
@@ -76,7 +91,7 @@ async function importClick() {
 
 async function openProject(f) {
   if (Object.keys(app.project.nodes).length && !confirm('Replace the current project? Unsaved work will be lost.')) return;
-  try { app.project = await loadProjectZip(await f.arrayBuffer()); app.selected = null; structural(false); viewport.frameAll(); } catch (e) { flash(e.message); }
+  try { app.project = await loadProjectZip(await f.arrayBuffer()); app.selected = null; history.reset(); structural(false); viewport.frameAll(); } catch (e) { flash(e.message); }
 }
 
 async function refreshFromFile(partId) {
@@ -128,6 +143,8 @@ const act = {
   copy: () => { if (!node()) return; app.clip = copyToClipboard(app.project, app.selected); flash(`Copied “${app.clip.name}” with all children.`); renderRight(); },
   paste: (asChild) => { if (!app.clip) return; try { afterPaste(pasteClipboard(app.project, app.clip, { parent: asChild ? app.selected : undefined, M: off() })); } catch (e) { flash(e.message); } },
   duplicate: () => { if (node()) afterPaste(duplicateSubtree(app.project, app.selected, { offset: app.dupOffset.map((v) => v / 1000) })); },
+  undo: () => doHistory('undo'),
+  redo: () => doHistory('redo'),
   refreshFile: refreshFromFile,
   openDatasheet: () => openDatasheetDialog({ app, flash, onAdded: onLibraryAdded, reloadLibrary }),
 };
@@ -143,6 +160,8 @@ addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'c') act.copy();
   if ((e.ctrlKey || e.metaKey) && e.key === 'v') act.paste(false);
   if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); act.duplicate(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); doHistory(e.shiftKey ? 'redo' : 'undo'); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); doHistory('redo'); return; }
   if (e.ctrlKey || e.metaKey) return;
   if (e.key === 'w') { viewport.setMode('translate'); renderGizmoBar(ctx); }
   if (e.key === 'e') { viewport.setMode('rotate'); renderGizmoBar(ctx); }
@@ -160,6 +179,13 @@ vp.addEventListener('drop', (e) => {
   if (stls.length) importFiles(stls); else if (zip) openProject(zip);
 });
 
+// any user activity (re)starts the flush timer; while a pointer is down (drags) the flush waits for the release
+for (const ev of ['pointerdown', 'keydown', 'input', 'change', 'click', 'drop']) document.addEventListener(ev, scheduleHistory, true);
+document.addEventListener('pointerdown', () => { pointerDown = true; }, true);
+for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, () => { pointerDown = false; scheduleHistory(); }, true);
+
 $('#hint').textContent = HINT;
+history = new History(() => app.project, { limit: 100, onChange: () => { if (ctx.act) renderToolbar(ctx); } });
+ctx.history = history;
 structural(false); initLibrary(renderLeft);
 window.s2m = { app, viewport, importFiles, structural, select, assembler, ctx, core: { addConnector, applyMate } }; // handy for debugging / tests
