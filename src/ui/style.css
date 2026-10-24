@@ -117,3 +117,4 @@ button.primary:not(.ib) { background:var(--acc); color:#04121f; border-color:var
 .bar { gap:4px; } .bar .ib { min-width:30px; height:30px; padding:0 4px; } .bar .seg .ib { height:26px; } .bar > .seg { margin:0 2px; }
 .modal .row { grid-template-columns:26px 1fr; } .modal .row input[type=file] { width:100%; }
 .fold { margin-top:-2px; }
+.step-table .ib { margin:-3px 0 -3px 6px; } .step-table .ib-slot { width:27px; flex:none; }

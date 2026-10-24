@@ -15,7 +15,8 @@ export function openStepDialog({ flash, onBuilt }) {
   const close = () => overlay.remove();
   overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
 
-  const S = { asm: null, stl: new Map(), config: null }; // stl: path → File
+  const S = { asm: null, stl: new Map(), manual: {} };    // stl: path → File; manual: STEP part → path (picked per part, wins over name matching)
+  const pick = h('input', { type: 'file', accept: '.stl', style: 'display:none', 'data-act': 'part-file' });
   const buffers = new Map();                              // path → ArrayBuffer (read once, parsed on demand)
 
   const stepIn = h('input', { type: 'file', accept: '.stp,.step', 'data-act': 'step-file', onchange: () => loadStep() });
@@ -27,12 +28,24 @@ export function openStepDialog({ flash, onBuilt }) {
   const status = h('div', { class: 'stat' });
   const stepInfo = h('div', { class: 'stat' });
   const stlInfo = h('div', { class: 'stat' });
+  const partsInfo = h('div', { class: 'stat', 'data-act': 'parts-info' });
   const suggest = ib('sparkles', 'Write a starting robot.json from the assembly (check it against your CAD)', () => doSuggest(), { label: 'Suggest', act: 'suggest', disabled: true });
   const build = ib('assembly', 'Build the robot and load it into the editor', () => doBuild(), { primary: true, label: 'Build', act: 'build', disabled: true });
 
   const setStatus = (kind, text) => { status.className = kind === 'ok' ? 'stat ok' : kind === 'err' ? 'note' : 'stat'; status.replaceChildren(icon(kind === 'ok' ? 'check' : kind === 'err' ? 'error' : 'info', 14), text); };
   const parsedConfig = () => { try { return cfg.value.trim() ? JSON.parse(cfg.value) : null; } catch (e) { return { __error: e.message }; } };
-  const lookup = (overrides) => createStlLookup([...S.stl.keys()], (p) => parseSTL(buffers.get(p)), overrides ?? {});
+  const lookup = (overrides) => createStlLookup([...S.stl.keys()], (p) => parseSTL(buffers.get(p)), { ...overrides, ...S.manual });
+  const isServoPart = (c, product) => (c?.servoModel ? [c.servoModel.case, c.servoModel.shaft].includes(product) : /^(case|body|housing|shaft|output|horn|axis)$/i.test(product));
+
+  /** Click on a part in the list: choose its STL file directly. */
+  function pickFor(product) {
+    pick.onchange = async () => {
+      const f = pick.files[0]; if (!f) return;
+      let path = f.name, i = 2; while (S.stl.has(path)) path = `${i++}_${f.name}`;
+      S.stl.set(path, f); buffers.set(path, await f.arrayBuffer()); S.manual[product] = path; pick.value = ''; refresh();
+    };
+    pick.click();
+  }
 
   async function loadStep() {
     const f = stepIn.files[0]; if (!f) return;
@@ -62,23 +75,30 @@ export function openStepDialog({ flash, onBuilt }) {
     stlInfo.className = S.stl.size ? 'stat ok' : 'stat'; stlInfo.replaceChildren(icon(S.stl.size ? 'check' : 'info', 14), `${S.stl.size} STL file${S.stl.size === 1 ? '' : 's'}`);
     const c = parsedConfig();
     const rows = [];
-    if (S.asm && S.stl.size) {
+    let missing = 0, total = 0;
+    if (S.asm) {
       let stl; try { stl = lookup(c?.stl); } catch (e) { stl = lookup(); rows.push(h('div', { class: 'note' }, icon('warning', 13), e.message)); }
       const byProduct = new Map();
       for (const o of S.asm.occurrences.filter((x) => x.leaf)) {
         const e = byProduct.get(o.product) ?? { n: 0, o }; e.n++; byProduct.set(o.product, e);
       }
-      for (const [product, { n, o }] of byProduct) {
+      const items = [...byProduct].map(([product, { n, o }]) => {
         const hit = stl.find(product, o.path.slice(0, -1));
-        const servo = c?.servoModel && [c.servoModel.case, c.servoModel.shaft].includes(product);
-        const ignored = c?.ignore?.includes(product);
-        const ok = hit || servo || ignored;
-        rows.push(h('div', { class: ok ? 'stat' : 'note', 'data-product': product },
-          icon(hit ? 'check' : servo ? 'servo' : ignored ? 'info' : 'warning', 13), `${product}${n > 1 ? ` ×${n}` : ''}`,
-          h('span', { class: 'unit' }, hit ? hit.file : servo ? `library servo ${c.servoModel.library}` : ignored ? 'ignored' : 'no STL – left out')));
+        const servo = isServoPart(c, product), ignored = c?.ignore?.includes(product);
+        return { product, n, hit, servo, ignored, ok: Boolean(hit || servo || ignored) };
+      }).sort((a, b) => Number(a.ok) - Number(b.ok)); // parts that still need a file come first
+      for (const it of items) {
+        if (!it.servo && !it.ignored) { total++; if (!it.hit) missing++; }
+        const label = it.hit ? it.hit.file : it.servo ? `library servo${c?.servoModel ? ` ${c.servoModel.library}` : ''}` : it.ignored ? 'ignored' : 'needs an STL';
+        rows.push(h('div', { class: it.ok ? 'stat' : 'note', 'data-product': it.product },
+          icon(it.hit ? 'check' : it.servo ? 'servo' : it.ignored ? 'info' : 'warning', 13), `${it.product}${it.n > 1 ? ` ×${it.n}` : ''}`,
+          h('span', { class: 'unit' }, label),
+          it.servo || it.ignored ? h('span', { class: 'ib-slot' }) : ib('import', it.hit ? `Use a different STL for ${it.product}` : `Choose the STL file for ${it.product}`, () => pickFor(it.product), { act: 'pick-part', size: 15 })));
       }
     }
     matches.replaceChildren(...rows);
+    partsInfo.replaceChildren(...(S.asm ? [icon(missing ? 'warning' : 'check', 14), missing ? `${total - missing}/${total} parts have an STL – use the import icon on a row, or add a folder` : `all ${total} parts have an STL`] : []));
+    partsInfo.className = !S.asm ? 'stat' : missing ? 'note' : 'stat ok';
     suggest.disabled = !(S.asm && S.stl.size);
     build.disabled = !(S.asm && S.stl.size && c && !c.__error);
     if (c?.__error) setStatus('err', `robot.json: ${c.__error}`);
@@ -109,10 +129,10 @@ export function openStepDialog({ flash, onBuilt }) {
   const t = h('div', { class: 'card-title' }, h('span', {}, icon('assembly', 18), 'Build from STEP'), ib('close', 'Close', close));
   box.replaceChildren(t,
     h('div', { class: 'row', 'data-tip': 'The assembly exported from your CAD as STEP (.stp / .step)' }, icon('assembly', 18), stepIn), stepInfo,
-    h('div', { class: 'row', 'data-tip': 'STL files of the parts – the names must match the STEP part names (case and _ - are ignored)' }, icon('box', 18), stlIn),
-    h('div', { class: 'btns' }, ib('open', 'Add every STL in a folder (including sub-folders)', () => dirIn.click(), { label: 'Folder', act: 'pick-folder' }), dirIn, stlInfo),
+    h('div', { class: 'row', 'data-tip': 'STL files of the parts – matched to the STEP parts by name (case and _ - are ignored). Or pick a file for one part in the list below.' }, icon('box', 18), stlIn),
+    h('div', { class: 'btns' }, ib('open', 'Search a whole folder (including sub-folders) for the parts of the list below', () => dirIn.click(), { label: 'Folder', act: 'pick-folder' }), dirIn, stlInfo),
     h('div', { class: 'row', 'data-tip': 'Optional: a robot.json you already have' }, icon('file', 18), jsonIn),
-    matches,
+    partsInfo, matches, pick,
     cfg,
     status,
     h('div', { class: 'btns' }, suggest, build, h('span', { class: 'unit' }, 'check the robot.json against your CAD')));

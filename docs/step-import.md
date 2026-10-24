@@ -8,9 +8,10 @@ Toolbar **assembly icon** (or **From STEP** on the start screen):
 
 | # | Step | |
 |---|---|---|
-| 1 | 📤 choose the `.stp` | shows parts + occurrences |
-| 2 | 🧱 add the STL files (or **Folder**) | names must match the STEP parts |
-| 3 | 📋 check the list | ✅ matched · 🔩 library servo · ⚠️ no STL (left out) |
+| 1 | 📤 choose the `.stp` | 📋 lists every part of the assembly (×count) |
+| 2 | 🧱 add STL files, or a **Folder** (searched incl. sub-folders) | matched by name, case and `_ -` ignored |
+| 3 | 📋 check the list, missing parts first | ✅ matched · 🔩 library servo · ⚠️ needs an STL |
+| 3b | ⬇️ **import icon on a row** | pick the STL for that one part, any file name |
 | 4 | 🤖 **Suggest** (or load your `robot.json`) | edit it in the box |
 | 5 | 🏗️ **Build** | robot appears in the editor, same result as the CLI |
 
