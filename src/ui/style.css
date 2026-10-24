@@ -35,3 +35,8 @@ h3:first-child { margin-top:0; }
 .lib-item { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; border-radius:4px; cursor:pointer; } .lib-item:hover { background:var(--panel2); }
 .lib-item button { padding:0 8px; } details { margin:4px 0; } summary { cursor:pointer; color:var(--dim); font-weight:600; padding:3px 0; }
 .note { font-size:11.5px; color:var(--warn); margin:4px 0; } .conn { display:flex; gap:4px; align-items:center; margin:3px 0; } .conn input { flex:1; } .conn button { padding:1px 6px; }
+
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
+.modal-box { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; width:min(560px, 94vw); max-height:90vh; overflow:auto; }
+.modal textarea { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:6px; font:inherit; }
+.log { background:#0e1116; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:180px; overflow:auto; font:12px/1.4 ui-monospace,monospace; white-space:pre-wrap; color:var(--dim); }
