@@ -188,7 +188,7 @@ export function validate(project) {
     const hasJoint = n.joint.type !== 'fixed';
     if (n.parent && !project.nodes[n.parent]) push('error', `"${n.name}": parent no longer exists`, n.id);
     if (hasJoint && !part) push('error', `"${n.name}" has a joint but no part (no mass) – MuJoCo requires mass on moving bodies`, n.id);
-    if (part && !part.stats.watertight) push('warning', `"${n.name}": mesh "${part.name}" is not watertight (${part.stats.openEdges} open edges) – mass/inertia may be inaccurate; use an explicit mass`, n.id);
+    if (part && !part.stats.watertight) push('warning', `"${n.name}": mesh "${part.name}" is not a clean closed mesh (${part.stats.openEdges} open, ${part.stats.nonManifoldEdges} non-manifold edges) – mass/inertia may be inaccurate; use an explicit mass`, n.id);
     if (part && n.mass.mode === 'explicit' && !(n.mass.mass > 0)) push('error', `"${n.name}": mass must be > 0`, n.id);
     if (part && n.mass.mode === 'density' && !(n.mass.density > 0)) push('error', `"${n.name}": density must be > 0`, n.id);
     if (['hinge', 'slide'].includes(n.joint.type) && Math.hypot(...n.joint.axis) < 1e-9) push('error', `"${n.name}": joint axis is zero`, n.id);
