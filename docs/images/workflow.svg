@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 390" width="1280" height="390" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>stl2mujoco workflow: add parts, assemble, define roles, copy and mirror, export</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#f28c1e"/>
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1f8a8f"/>
+    </marker>
+    <style>
+      .card { fill: #0f2a4d; stroke: #1f8a8f; stroke-width: 2; }
+      .badge { fill: #f28c1e; }
+      .num { fill: #0f2a4d; font-size: 15px; font-weight: 700; text-anchor: middle; }
+      .title { fill: #ffffff; font-size: 18px; font-weight: 700; text-anchor: middle; }
+      .sub { fill: #b9c8dc; font-size: 12.5px; text-anchor: middle; }
+      .line { stroke: #7fd3d6; stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .fillt { fill: #1f8a8f; }
+      .fillo { fill: #f28c1e; }
+      .fillg { fill: #d9dde3; }
+      .flow { stroke: #f28c1e; stroke-width: 3; fill: none; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <!-- connectors between the steps -->
+  <path class="flow" d="M235 190 H275" marker-end="url(#arrow)"/>
+  <path class="flow" d="M490 190 H530" marker-end="url(#arrow)"/>
+  <path class="flow" d="M745 190 H785" marker-end="url(#arrow)"/>
+  <path class="flow" d="M1000 190 H1040" marker-end="url(#arrow)"/>
+
+  <!-- feedback loop: check the motion, then adjust the mates -->
+  <path d="M640 290 C640 352 385 352 385 292" fill="none" stroke="#1f8a8f" stroke-width="2.4" stroke-dasharray="7 6" marker-end="url(#arrow-teal)"/>
+  <rect x="438" y="326" width="148" height="26" rx="13" fill="#0f2a4d" stroke="#1f8a8f" stroke-width="1.5"/>
+  <text x="512" y="344" class="sub" style="fill:#7fd3d6">check with Test pose</text>
+
+  <!-- 1 Add parts -->
+  <rect class="card" x="25" y="90" width="210" height="200" rx="18"/>
+  <circle class="badge" cx="53" cy="118" r="14"/><text class="num" x="53" y="123">1</text>
+  <path class="line" d="M130 124 L152 137 V163 L130 176 L108 163 V137 Z M108 137 L130 150 L152 137 M130 150 V176"/>
+  <circle class="fillo" cx="160" cy="126" r="11"/><path d="M160 120 V132 M154 126 H166" stroke="#0f2a4d" stroke-width="2.6" stroke-linecap="round"/>
+  <text class="title" x="130" y="212">Add parts</text>
+  <text class="sub" x="130" y="237">Import STL files from your CAD</text>
+  <text class="sub" x="130" y="255">or pick standard parts:</text>
+  <text class="sub" x="130" y="273">servos, screws, nuts, washers</text>
+
+  <!-- 2 Assemble -->
+  <rect class="card" x="280" y="90" width="210" height="200" rx="18"/>
+  <circle class="badge" cx="308" cy="118" r="14"/><text class="num" x="308" y="123">2</text>
+  <rect class="line" x="337" y="140" width="34" height="26" rx="5"/>
+  <rect class="line" x="389" y="140" width="34" height="26" rx="5" style="stroke:#d9dde3"/>
+  <circle class="fillo" cx="380" cy="153" r="9"/><circle cx="380" cy="153" r="3.5" fill="#0f2a4d"/>
+  <text class="title" x="385" y="212">Assemble</text>
+  <text class="sub" x="385" y="237">Mate: click hole, face or edge</text>
+  <text class="sub" x="385" y="255">on both parts and it snaps.</text>
+  <text class="sub" x="385" y="273">Rigid / Revolute / Slider / Ball</text>
+
+  <!-- 3 Roles and axes -->
+  <rect class="card" x="535" y="90" width="210" height="200" rx="18"/>
+  <circle class="badge" cx="563" cy="118" r="14"/><text class="num" x="563" y="123">3</text>
+  <circle class="line" cx="640" cy="152" r="17"/><circle class="fillt" cx="640" cy="152" r="4"/>
+  <path class="line" d="M640 152 V122" style="stroke:#f28c1e" marker-end="url(#arrow)"/>
+  <path class="line" d="M662 134 A26 26 0 0 1 666 164" style="stroke:#f28c1e"/>
+  <text class="title" x="640" y="212">Roles &amp; axes</text>
+  <text class="sub" x="640" y="237">Servo, motor, wheel, hinge.</text>
+  <text class="sub" x="640" y="255">Joint axis = connector Z,</text>
+  <text class="sub" x="640" y="273">editable.</text>
+
+  <!-- 4 Copy and mirror -->
+  <rect class="card" x="790" y="90" width="210" height="200" rx="18"/>
+  <circle class="badge" cx="818" cy="118" r="14"/><text class="num" x="818" y="123">4</text>
+  <rect class="line" x="852" y="136" width="30" height="34" rx="5"/>
+  <path d="M895 128 V178" stroke="#f28c1e" stroke-width="2" stroke-dasharray="4 4"/>
+  <rect class="line" x="908" y="136" width="30" height="34" rx="5" style="stroke-dasharray:5 4;stroke:#d9dde3"/>
+  <text class="title" x="895" y="212">Copy &amp; mirror</text>
+  <text class="sub" x="895" y="237">Duplicate whole sub-trees,</text>
+  <text class="sub" x="895" y="255">e.g. a circular array of one</text>
+  <text class="sub" x="895" y="273">leg gives a hexapod.</text>
+
+  <!-- 5 Export -->
+  <rect class="card" x="1045" y="90" width="210" height="200" rx="18"/>
+  <circle class="badge" cx="1073" cy="118" r="14"/><text class="num" x="1073" y="123">5</text>
+  <path class="line" d="M1132 126 H1160 L1176 142 V176 H1132 Z M1160 126 V142 H1176"/>
+  <path d="M1154 148 V168 M1146 160 L1154 169 L1162 160" stroke="#f28c1e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="title" x="1150" y="212">Export</text>
+  <text class="sub" x="1150" y="237">ZIP with model.xml + meshes/</text>
+  <text class="sub" x="1150" y="255">that loads directly</text>
+  <text class="sub" x="1150" y="273">in MuJoCo.</text>
+
+  <!-- result -->
+  <path class="flow" d="M1150 292 V322" marker-end="url(#arrow)"/>
+  <rect x="1090" y="328" width="120" height="34" rx="17" class="fillo"/>
+  <text x="1150" y="351" style="fill:#0f2a4d;font-size:16px;font-weight:700;text-anchor:middle">MuJoCo</text>
+</svg>

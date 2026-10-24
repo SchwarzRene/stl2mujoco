@@ -4,11 +4,7 @@
 
 A browser-based visual editor that turns CAD parts (STL) into a **MuJoCo** robot model.
 
-1. **Add parts** – import STL files from your CAD, or pick **standard parts** (servos, screws, nuts, washers) from the *Parts library*.
-2. **Assemble like in a CAD program** – click the **link icon (Mate, key M)** in the toolbar, click a hole / face / edge (or a green marker) on the part to move, then on the part it attaches to. It snaps into place; choose *Rigid*, *Revolute*, *Slider* or *Ball*, flip, offset and rotation.
-3. **Define roles and axes** – servo joints, motors, wheels, passive hinges; joint axes are the connector Z axes (or edit them); *Test pose* sliders let you check the motion.
-4. **Copy and mirror** whole sub-trees (e.g. circular array of one leg → hexapod).
-5. **Export** a ZIP with `model.xml` + `meshes/` that loads directly in MuJoCo.
+<p align="center"><img src="docs/images/workflow.svg" alt="Workflow: 1 add parts (STL or standard parts), 2 assemble with mates, 3 define roles and axes and check with Test pose, 4 copy and mirror sub-trees, 5 export a ZIP with model.xml and meshes that loads in MuJoCo" width="100%"></p>
 
 ```bash
 npm install
