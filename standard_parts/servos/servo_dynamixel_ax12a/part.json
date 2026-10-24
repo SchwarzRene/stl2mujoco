@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "id": "servo_dynamixel_ax12a",
+  "name": "Dynamixel AX-12A",
+  "category": "Servos",
+  "units": "mm",
+  "description": "Dynamixel AX-12A. Origin on the horn axis at the front face, +Z towards the horn, long side along Y. Horn disc is the rotating `output` body.",
+  "dims_status": {
+    "overall_size": "datasheet listing (32×50×40 mm)",
+    "shaft_offset": "estimate – verify",
+    "horn": "estimate – verify",
+    "mass_torque_speed": "datasheet"
+  },
+  "sources": [
+    {
+      "title": "AX-12A spec (Generation Robots)",
+      "url": "https://www.generationrobots.com/media/Whole-Dynamixel-Specification.pdf"
+    },
+    {
+      "title": "AX-12A (Botland)",
+      "url": "https://botland.com.pl/en/standard-servos/13984-servo-robotis-dynamixel-ax-12a-8809052930196.html"
+    }
+  ],
+  "bodies": [
+    {
+      "name": "case",
+      "mesh": "case.stl",
+      "color": "#4b525e",
+      "mass_kg": 0.0486,
+      "collision": "mesh",
+      "connectors": [
+        {
+          "name": "front_face",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "front face around the horn"
+        },
+        {
+          "name": "back_face",
+          "pos_mm": [
+            0,
+            9,
+            -40
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "side_left",
+          "pos_mm": [
+            -16,
+            9,
+            -20
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "side_right",
+          "pos_mm": [
+            16,
+            9,
+            -20
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "end_top",
+          "pos_mm": [
+            0,
+            34,
+            -20
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "end_bottom",
+          "pos_mm": [
+            0,
+            -16,
+            -20
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "output",
+      "mesh": "output.stl",
+      "parent": "case",
+      "color": "#e3e6ea",
+      "mass_kg": 0.006,
+      "collision": "none",
+      "joint": {
+        "type": "hinge",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "frame_mm": [
+          0,
+          0,
+          0
+        ]
+      },
+      "servo": {
+        "preset": "ax12a"
+      },
+      "connectors": [
+        {
+          "name": "output_top",
+          "pos_mm": [
+            0,
+            0,
+            3
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "horn face – mount links here"
+        },
+        {
+          "name": "output_base",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        }
+      ]
+    }
+  ]
+}

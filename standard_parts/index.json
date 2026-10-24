@@ -1,0 +1,390 @@
+{
+  "schema": 1,
+  "parts": [
+    {
+      "id": "din125a_m2",
+      "name": "Plain washer DIN 125-A M2",
+      "category": "Fasteners",
+      "path": "fasteners/din125a_m2",
+      "tags": []
+    },
+    {
+      "id": "din125a_m2_5",
+      "name": "Plain washer DIN 125-A M2_5",
+      "category": "Fasteners",
+      "path": "fasteners/din125a_m2_5",
+      "tags": []
+    },
+    {
+      "id": "din125a_m3",
+      "name": "Plain washer DIN 125-A M3",
+      "category": "Fasteners",
+      "path": "fasteners/din125a_m3",
+      "tags": []
+    },
+    {
+      "id": "din125a_m4",
+      "name": "Plain washer DIN 125-A M4",
+      "category": "Fasteners",
+      "path": "fasteners/din125a_m4",
+      "tags": []
+    },
+    {
+      "id": "din125a_m5",
+      "name": "Plain washer DIN 125-A M5",
+      "category": "Fasteners",
+      "path": "fasteners/din125a_m5",
+      "tags": []
+    },
+    {
+      "id": "din125a_m6",
+      "name": "Plain washer DIN 125-A M6",
+      "category": "Fasteners",
+      "path": "fasteners/din125a_m6",
+      "tags": []
+    },
+    {
+      "id": "din912_m2_5x10",
+      "name": "Socket head cap screw DIN 912 M2_5×10",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2_5x10",
+      "tags": []
+    },
+    {
+      "id": "din912_m2_5x12",
+      "name": "Socket head cap screw DIN 912 M2_5×12",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2_5x12",
+      "tags": []
+    },
+    {
+      "id": "din912_m2_5x16",
+      "name": "Socket head cap screw DIN 912 M2_5×16",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2_5x16",
+      "tags": []
+    },
+    {
+      "id": "din912_m2_5x6",
+      "name": "Socket head cap screw DIN 912 M2_5×6",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2_5x6",
+      "tags": []
+    },
+    {
+      "id": "din912_m2_5x8",
+      "name": "Socket head cap screw DIN 912 M2_5×8",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2_5x8",
+      "tags": []
+    },
+    {
+      "id": "din912_m2x10",
+      "name": "Socket head cap screw DIN 912 M2×10",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2x10",
+      "tags": []
+    },
+    {
+      "id": "din912_m2x12",
+      "name": "Socket head cap screw DIN 912 M2×12",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2x12",
+      "tags": []
+    },
+    {
+      "id": "din912_m2x6",
+      "name": "Socket head cap screw DIN 912 M2×6",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2x6",
+      "tags": []
+    },
+    {
+      "id": "din912_m2x8",
+      "name": "Socket head cap screw DIN 912 M2×8",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m2x8",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x10",
+      "name": "Socket head cap screw DIN 912 M3×10",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x10",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x12",
+      "name": "Socket head cap screw DIN 912 M3×12",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x12",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x16",
+      "name": "Socket head cap screw DIN 912 M3×16",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x16",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x20",
+      "name": "Socket head cap screw DIN 912 M3×20",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x20",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x25",
+      "name": "Socket head cap screw DIN 912 M3×25",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x25",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x30",
+      "name": "Socket head cap screw DIN 912 M3×30",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x30",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x6",
+      "name": "Socket head cap screw DIN 912 M3×6",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x6",
+      "tags": []
+    },
+    {
+      "id": "din912_m3x8",
+      "name": "Socket head cap screw DIN 912 M3×8",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m3x8",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x10",
+      "name": "Socket head cap screw DIN 912 M4×10",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x10",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x12",
+      "name": "Socket head cap screw DIN 912 M4×12",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x12",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x16",
+      "name": "Socket head cap screw DIN 912 M4×16",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x16",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x20",
+      "name": "Socket head cap screw DIN 912 M4×20",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x20",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x25",
+      "name": "Socket head cap screw DIN 912 M4×25",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x25",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x30",
+      "name": "Socket head cap screw DIN 912 M4×30",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x30",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x40",
+      "name": "Socket head cap screw DIN 912 M4×40",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x40",
+      "tags": []
+    },
+    {
+      "id": "din912_m4x8",
+      "name": "Socket head cap screw DIN 912 M4×8",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m4x8",
+      "tags": []
+    },
+    {
+      "id": "din912_m5x10",
+      "name": "Socket head cap screw DIN 912 M5×10",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m5x10",
+      "tags": []
+    },
+    {
+      "id": "din912_m5x12",
+      "name": "Socket head cap screw DIN 912 M5×12",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m5x12",
+      "tags": []
+    },
+    {
+      "id": "din912_m5x16",
+      "name": "Socket head cap screw DIN 912 M5×16",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m5x16",
+      "tags": []
+    },
+    {
+      "id": "din912_m5x20",
+      "name": "Socket head cap screw DIN 912 M5×20",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m5x20",
+      "tags": []
+    },
+    {
+      "id": "din912_m5x25",
+      "name": "Socket head cap screw DIN 912 M5×25",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m5x25",
+      "tags": []
+    },
+    {
+      "id": "din912_m5x30",
+      "name": "Socket head cap screw DIN 912 M5×30",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m5x30",
+      "tags": []
+    },
+    {
+      "id": "din912_m5x40",
+      "name": "Socket head cap screw DIN 912 M5×40",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m5x40",
+      "tags": []
+    },
+    {
+      "id": "din912_m6x12",
+      "name": "Socket head cap screw DIN 912 M6×12",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m6x12",
+      "tags": []
+    },
+    {
+      "id": "din912_m6x16",
+      "name": "Socket head cap screw DIN 912 M6×16",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m6x16",
+      "tags": []
+    },
+    {
+      "id": "din912_m6x20",
+      "name": "Socket head cap screw DIN 912 M6×20",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m6x20",
+      "tags": []
+    },
+    {
+      "id": "din912_m6x25",
+      "name": "Socket head cap screw DIN 912 M6×25",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m6x25",
+      "tags": []
+    },
+    {
+      "id": "din912_m6x30",
+      "name": "Socket head cap screw DIN 912 M6×30",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m6x30",
+      "tags": []
+    },
+    {
+      "id": "din912_m6x40",
+      "name": "Socket head cap screw DIN 912 M6×40",
+      "category": "Fasteners",
+      "path": "fasteners/din912_m6x40",
+      "tags": []
+    },
+    {
+      "id": "din934_m2",
+      "name": "Hexagon nut DIN 934 M2",
+      "category": "Fasteners",
+      "path": "fasteners/din934_m2",
+      "tags": []
+    },
+    {
+      "id": "din934_m2_5",
+      "name": "Hexagon nut DIN 934 M2_5",
+      "category": "Fasteners",
+      "path": "fasteners/din934_m2_5",
+      "tags": []
+    },
+    {
+      "id": "din934_m3",
+      "name": "Hexagon nut DIN 934 M3",
+      "category": "Fasteners",
+      "path": "fasteners/din934_m3",
+      "tags": []
+    },
+    {
+      "id": "din934_m4",
+      "name": "Hexagon nut DIN 934 M4",
+      "category": "Fasteners",
+      "path": "fasteners/din934_m4",
+      "tags": []
+    },
+    {
+      "id": "din934_m5",
+      "name": "Hexagon nut DIN 934 M5",
+      "category": "Fasteners",
+      "path": "fasteners/din934_m5",
+      "tags": []
+    },
+    {
+      "id": "din934_m6",
+      "name": "Hexagon nut DIN 934 M6",
+      "category": "Fasteners",
+      "path": "fasteners/din934_m6",
+      "tags": []
+    },
+    {
+      "id": "servo_dynamixel_ax12a",
+      "name": "Dynamixel AX-12A",
+      "category": "Servos",
+      "path": "servos/servo_dynamixel_ax12a",
+      "tags": []
+    },
+    {
+      "id": "servo_dynamixel_xl430_w250",
+      "name": "Dynamixel XL430-W250",
+      "category": "Servos",
+      "path": "servos/servo_dynamixel_xl430_w250",
+      "tags": []
+    },
+    {
+      "id": "servo_mg90s",
+      "name": "MG90S servo",
+      "category": "Servos",
+      "path": "servos/servo_mg90s",
+      "tags": []
+    },
+    {
+      "id": "servo_mg996r",
+      "name": "MG996R servo",
+      "category": "Servos",
+      "path": "servos/servo_mg996r",
+      "tags": []
+    },
+    {
+      "id": "servo_sg90",
+      "name": "SG90 servo",
+      "category": "Servos",
+      "path": "servos/servo_sg90",
+      "tags": []
+    }
+  ]
+}

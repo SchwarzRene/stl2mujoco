@@ -1,0 +1,195 @@
+{
+  "schema": 1,
+  "id": "servo_mg996r",
+  "name": "MG996R servo",
+  "category": "Servos",
+  "units": "mm",
+  "description": "MG996R hobby servo. Origin on the output shaft axis at the case top plane, +Z towards the horn. Case is rigid; the `output` body is the rotating shaft with a position actuator whose torque/speed come from the datasheet.",
+  "dims_status": {
+    "overall_size": "datasheet (retail listings: 40.7×19.7×42.9 mm)",
+    "ears_and_holes": "typical standard-servo pattern – verify",
+    "shaft_offset": "typical standard-servo value – verify",
+    "mass_torque_speed": "datasheet"
+  },
+  "sources": [
+    {
+      "title": "MG996R specs (Kitronik)",
+      "url": "https://kitronik.co.uk/products/2575-large-180-servo"
+    },
+    {
+      "title": "MG996R listing (Probots)",
+      "url": "https://probots.co.in/mg996r-13kg-metal-gear-servo-180.html"
+    }
+  ],
+  "bodies": [
+    {
+      "name": "case",
+      "mesh": "case.stl",
+      "color": "#5a606b",
+      "mass_kg": 0.049,
+      "collision": "mesh",
+      "connectors": [
+        {
+          "name": "ear_hole_1_top",
+          "pos_mm": [
+            -14.4,
+            0,
+            -7.2
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "mounting hole, top side of the ear"
+        },
+        {
+          "name": "ear_hole_2_top",
+          "pos_mm": [
+            35.1,
+            0,
+            -7.2
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "ear_hole_1_bottom",
+          "pos_mm": [
+            -14.4,
+            0,
+            -9.7
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ],
+          "note": "mounting hole, underside of the ear"
+        },
+        {
+          "name": "ear_hole_2_bottom",
+          "pos_mm": [
+            35.1,
+            0,
+            -9.7
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "case_top",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "case top plane around the shaft"
+        },
+        {
+          "name": "case_bottom",
+          "pos_mm": [
+            10.35,
+            0,
+            -36.5
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "side_back",
+          "pos_mm": [
+            -10,
+            0,
+            -23.1
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "side_front",
+          "pos_mm": [
+            30.7,
+            0,
+            -23.1
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "output",
+      "mesh": "output.stl",
+      "parent": "case",
+      "color": "#e3e6ea",
+      "mass_kg": 0.006,
+      "collision": "none",
+      "joint": {
+        "type": "hinge",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "frame_mm": [
+          0,
+          0,
+          0
+        ]
+      },
+      "servo": {
+        "preset": "mg996r"
+      },
+      "connectors": [
+        {
+          "name": "output_top",
+          "pos_mm": [
+            0,
+            0,
+            6.4
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "top of the output spline – mount the horn / bracket here"
+        },
+        {
+          "name": "output_base",
+          "pos_mm": [
+            0,
+            0,
+            3
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        }
+      ]
+    }
+  ]
+}

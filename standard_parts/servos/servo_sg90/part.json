@@ -1,0 +1,195 @@
+{
+  "schema": 1,
+  "id": "servo_sg90",
+  "name": "SG90 servo",
+  "category": "Servos",
+  "units": "mm",
+  "description": "SG90 hobby servo. Origin on the output shaft axis at the case top plane, +Z towards the horn. Case is rigid; the `output` body is the rotating shaft with a position actuator whose torque/speed come from the datasheet.",
+  "dims_status": {
+    "overall_size": "datasheet (22.2×11.8×31 mm)",
+    "ears_and_holes": "typical micro-servo pattern – verify",
+    "shaft_offset": "typical – verify",
+    "mass_torque_speed": "datasheet"
+  },
+  "sources": [
+    {
+      "title": "SG90 datasheet (TAMS Hamburg)",
+      "url": "https://tams.informatik.uni-hamburg.de/lehre/2023ss/vorlesung/es/doc/sg90.pdf"
+    },
+    {
+      "title": "SG90 listing (ProtoSupplies)",
+      "url": "https://protosupplies.com/product/servo-motor-micro-sg90/"
+    }
+  ],
+  "bodies": [
+    {
+      "name": "case",
+      "mesh": "case.stl",
+      "color": "#5a606b",
+      "mass_kg": 0.008,
+      "collision": "mesh",
+      "connectors": [
+        {
+          "name": "ear_hole_1_top",
+          "pos_mm": [
+            -8.8,
+            0,
+            -5.5
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "mounting hole, top side of the ear"
+        },
+        {
+          "name": "ear_hole_2_top",
+          "pos_mm": [
+            19,
+            0,
+            -5.5
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "ear_hole_1_bottom",
+          "pos_mm": [
+            -8.8,
+            0,
+            -6.7
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ],
+          "note": "mounting hole, underside of the ear"
+        },
+        {
+          "name": "ear_hole_2_bottom",
+          "pos_mm": [
+            19,
+            0,
+            -6.7
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "case_top",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "case top plane around the shaft"
+        },
+        {
+          "name": "case_bottom",
+          "pos_mm": [
+            5.1,
+            0,
+            -22.7
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "side_back",
+          "pos_mm": [
+            -6,
+            0,
+            -14.7
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "side_front",
+          "pos_mm": [
+            16.2,
+            0,
+            -14.7
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "output",
+      "mesh": "output.stl",
+      "parent": "case",
+      "color": "#e3e6ea",
+      "mass_kg": 0.001,
+      "collision": "none",
+      "joint": {
+        "type": "hinge",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "frame_mm": [
+          0,
+          0,
+          0
+        ]
+      },
+      "servo": {
+        "preset": "sg90"
+      },
+      "connectors": [
+        {
+          "name": "output_top",
+          "pos_mm": [
+            0,
+            0,
+            8.3
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "top of the output spline – mount the horn / bracket here"
+        },
+        {
+          "name": "output_base",
+          "pos_mm": [
+            0,
+            0,
+            3.5
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        }
+      ]
+    }
+  ]
+}

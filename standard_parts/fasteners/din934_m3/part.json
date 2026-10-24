@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "units": "mm",
+  "category": "Fasteners",
+  "dims_status": {
+    "dimensions": "standard nominal values",
+    "thread": "plain cylinder of 0.92·d (effective diameter)"
+  },
+  "sources": [
+    {
+      "title": "ISO/DIN dimension tables (DIN 912, DIN 934, DIN 125-A)",
+      "url": "https://www.dinstandards.com"
+    }
+  ],
+  "id": "din934_m3",
+  "name": "Hexagon nut DIN 934 M3",
+  "description": "Origin at the bottom face centre.",
+  "bodies": [
+    {
+      "name": "nut",
+      "mesh": "nut.stl",
+      "color": "#8d9298",
+      "mass": {
+        "mode": "density",
+        "density": 7850
+      },
+      "collision": "none",
+      "connectors": [
+        {
+          "name": "bottom",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "top",
+          "pos_mm": [
+            0,
+            0,
+            2.4
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

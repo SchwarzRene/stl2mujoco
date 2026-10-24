@@ -2,7 +2,7 @@
 // coordinates, SI units (metres / radians). Parent-relative poses are derived on export.
 import { Matrix4, Quaternion, Vector3, Euler } from 'three';
 import { applyRole, defaultJoint } from './presets.js';
-import { mirrorMesh, meshQuality, bbox, boxMesh, cylinderMesh, sphereMesh } from './mesh.js';
+import { mirrorMesh, meshQuality, bbox, boxMesh, cylinderMesh, sphereMesh, orientOutward } from './mesh.js';
 
 export const uid = () => Math.random().toString(36).slice(2, 9);
 export const identityPose = () => ({ pos: [0, 0, 0], quat: [0, 0, 0, 1] });
@@ -33,6 +33,7 @@ export function eulerDegFromPose(p) {
 
 export function addPart(project, { name, positions, unitScale = 0.001, source = 'stl', dims = null }) {
   const id = uid();
+  positions = orientOutward(positions); // MuJoCo needs outward-facing triangles
   const stats = meshQuality(positions);
   project.parts[id] = { id, name, unitScale, source, dims, positions, stats, bbox: bbox(positions) };
   return project.parts[id];
@@ -51,7 +52,7 @@ export function addNode(project, { name, parent = null, partId = null, role = 'l
     role: 'link', frame: base, partPose: partPose ?? { pos: [...base.pos], quat: [...base.quat] },
     joint: defaultJoint(), actuator: null,
     mass: { mode: 'density', density: 1240, mass: 0.1 },
-    collision: 'mesh', color: '#8aa4c8', friction: null,
+    collision: 'mesh', color: '#8aa4c8', friction: null, connectors: [], servo: null, mate: null, library: null,
   };
   project.nodes[id] = node;
   applyRole(node, role);
@@ -122,6 +123,8 @@ export function mirrorSubtree(project, id, axis = 1, suffix = '_mirror') {
     // axis is a pseudo-vector: a' = det(S)·S·a (S acts on the local axis components)
     const a = o.joint.axis.slice(); a[axis] = -a[axis];
     n.joint.axis = a.map((v) => -v);
+    n.mate = null;
+    n.connectors = (o.connectors ?? []).map((c) => ({ ...c, id: uid(), ...mirrorConnector(c, axis) }));
     if (o.part) {
       if (!partMap[o.part]) {
         const p = project.parts[o.part];
@@ -135,6 +138,16 @@ export function mirrorSubtree(project, id, axis = 1, suffix = '_mirror') {
   return out;
 }
 
+/** Reflect a connector frame (position and Z/X axes) across the plane normal to `axis` in part-local space. */
+function mirrorConnector(c, axis) {
+  const S = (v) => { const r = [...v]; r[axis] = -r[axis]; return r; };
+  const m = new Matrix4().makeRotationFromQuaternion(new Quaternion(...c.quat));
+  const x = new Vector3().setFromMatrixColumn(m, 0), z = new Vector3().setFromMatrixColumn(m, 2);
+  const z2 = new Vector3(...S(z.toArray())), x2 = new Vector3(...S(x.toArray())), y2 = new Vector3().crossVectors(z2, x2);
+  const q = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(x2, y2, z2));
+  return { pos: S(c.pos), quat: [q.x, q.y, q.z, q.w] };
+}
+
 function copySubtree(project, id, M, suffix, newParent) {
   const idMap = {}, out = [];
   for (const oid of subtreeIds(project, id)) {
@@ -143,6 +156,8 @@ function copySubtree(project, id, M, suffix, newParent) {
     n.id = uid(); idMap[oid] = n.id;
     n.name = o.name + suffix;
     n.parent = oid === id ? newParent : idMap[o.parent];
+    n.connectors = (o.connectors ?? []).map((c) => ({ ...c, id: uid() }));
+    n.mate = null;
     n.frame = matrixToPose(M.clone().multiply(poseToMatrix(o.frame)));
     n.partPose = matrixToPose(M.clone().multiply(poseToMatrix(o.partPose)));
     project.nodes[n.id] = n; out.push(n);
@@ -188,7 +203,7 @@ export function validate(project) {
     const hasJoint = n.joint.type !== 'fixed';
     if (n.parent && !project.nodes[n.parent]) push('error', `"${n.name}": parent no longer exists`, n.id);
     if (hasJoint && !part) push('error', `"${n.name}" has a joint but no part (no mass) – MuJoCo requires mass on moving bodies`, n.id);
-    if (part && !part.stats.watertight) push('warning', `"${n.name}": mesh "${part.name}" is not a clean closed mesh (${part.stats.openEdges} open, ${part.stats.nonManifoldEdges} non-manifold edges) – mass/inertia may be inaccurate; use an explicit mass`, n.id);
+    if (part && !part.stats.watertight && !part.trusted) push('warning', `"${n.name}": mesh "${part.name}" is not a clean closed mesh (${part.stats.openEdges} open, ${part.stats.nonManifoldEdges} non-manifold edges) – mass/inertia may be inaccurate; use an explicit mass`, n.id);
     if (part && n.mass.mode === 'explicit' && !(n.mass.mass > 0)) push('error', `"${n.name}": mass must be > 0`, n.id);
     if (part && n.mass.mode === 'density' && !(n.mass.density > 0)) push('error', `"${n.name}": density must be > 0`, n.id);
     if (['hinge', 'slide'].includes(n.joint.type) && Math.hypot(...n.joint.axis) < 1e-9) push('error', `"${n.name}": joint axis is zero`, n.id);
@@ -197,7 +212,9 @@ export function validate(project) {
     if (n.actuator && n.joint.type === 'ball') push('warning', `"${n.name}": actuators on ball joints are not exported`, n.id);
     if (n.joint.type === 'free' && n.parent) push('error', `"${n.name}": only root bodies can have a free joint`, n.id);
   }
-  if (nodes.length && !roots(project).length) push('error', 'No root body (cycle in the tree).');
+  const rs = roots(project);
+  rs.slice(1).forEach((r) => push('warning', `"${r.name}" is not attached to anything and will be welded to the world. Use Mate / Assemble to connect it.`, r.id));
+  if (nodes.length && !rs.length) push('error', 'No root body (cycle in the tree).');
   if (project.settings.floor && nodes.length) {
     let low = Infinity;
     for (const n of nodes) { const p = project.parts[n.part]; if (!p) continue;

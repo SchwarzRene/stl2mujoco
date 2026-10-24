@@ -10,15 +10,8 @@ export const MATERIALS = {
   'Carbon fibre (1600 kg/m³)': 1600,
 };
 
-// Torque in N·m, speed in rad/s. kp/kv follow MuJoCo's position actuator: force = kp*(ctrl-q) - kv*qdot
-export const SERVO_PRESETS = {
-  'MG996R (≈1.0 N·m, 180°)': { range: [-90, 90], forcerange: 1.0, kp: 20, kv: 0.6, damping: 0.05, frictionloss: 0.02, armature: 0.002 },
-  'SG90 (≈0.18 N·m, 180°)': { range: [-90, 90], forcerange: 0.18, kp: 4, kv: 0.1, damping: 0.01, frictionloss: 0.005, armature: 0.0005 },
-  'MG90S (≈0.22 N·m, 180°)': { range: [-90, 90], forcerange: 0.22, kp: 5, kv: 0.12, damping: 0.01, frictionloss: 0.005, armature: 0.0005 },
-  'Dynamixel XL430 (1.4 N·m)': { range: [-180, 180], forcerange: 1.4, kp: 30, kv: 1.0, damping: 0.05, frictionloss: 0.02, armature: 0.005 },
-  'Dynamixel AX-12A (1.5 N·m)': { range: [-150, 150], forcerange: 1.5, kp: 30, kv: 1.0, damping: 0.05, frictionloss: 0.02, armature: 0.005 },
-  'Generic servo': { range: [-90, 90], forcerange: 2.0, kp: 30, kv: 1.0, damping: 0.05, frictionloss: 0.0, armature: 0.0 },
-};
+// Servo presets live in servo-specs.js (datasheet torque/speed); see servo.js for the model.
+export { SERVO_SPECS as SERVO_PRESETS } from './servo-specs.js';
 
 /** Role = a UI-level shortcut that fills in joint + actuator. */
 export const ROLES = {
@@ -33,19 +26,22 @@ export const ROLES = {
   ball: { label: 'Ball joint', help: '3-DOF spherical joint.' },
 };
 
+import { newServoState, applyServo } from './servo.js';
+
 export const defaultJoint = () => ({ type: 'fixed', axis: [0, 0, 1], range: null, damping: 0, frictionloss: 0, armature: 0, stiffness: 0 });
 
-export function applyRole(node, role, preset = SERVO_PRESETS['MG996R (≈1.0 N·m, 180°)']) {
+export function applyRole(node, role, specKey = 'mg996r') {
   node.role = role;
   const d = (deg) => (deg * Math.PI) / 180;
   const j = (node.joint = { ...defaultJoint(), axis: node.joint?.axis ? [...node.joint.axis] : [0, 0, 1] });
   node.actuator = null;
+  if (role !== 'servo') node.servo = null;
   switch (role) {
     case 'base': j.type = 'free'; break;
     case 'base-fixed': case 'link': j.type = 'fixed'; break;
     case 'servo':
-      Object.assign(j, { type: 'hinge', range: preset.range.map(d), damping: preset.damping, frictionloss: preset.frictionloss, armature: preset.armature });
-      node.actuator = { kind: 'position', kp: preset.kp, kv: preset.kv, ctrlrange: preset.range.map(d), forcerange: preset.forcerange, gear: 1 };
+      node.servo = newServoState(specKey);
+      applyServo(node);
       break;
     case 'motor-hinge':
       Object.assign(j, { type: 'hinge', range: [-Math.PI, Math.PI], damping: 0.05 });

@@ -171,3 +171,17 @@ export function sphereMesh(radius, seg = 32, rings = 16) {
   }
   return Float32Array.from(out);
 }
+
+/** Flip triangle winding if the mesh is inside-out (negative signed volume). */
+export function orientOutward(positions) {
+  let v = 0;
+  for (let i = 0; i < positions.length; i += 9) {
+    v += positions[i] * (positions[i + 4] * positions[i + 8] - positions[i + 5] * positions[i + 7])
+       - positions[i + 1] * (positions[i + 3] * positions[i + 8] - positions[i + 5] * positions[i + 6])
+       + positions[i + 2] * (positions[i + 3] * positions[i + 7] - positions[i + 4] * positions[i + 6]);
+  }
+  if (!(v < 0)) return positions;
+  const q = Float32Array.from(positions);
+  for (let i = 0; i < q.length; i += 9) for (let k = 0; k < 3; k++) { const t = q[i + 3 + k]; q[i + 3 + k] = q[i + 6 + k]; q[i + 6 + k] = t; }
+  return q;
+}

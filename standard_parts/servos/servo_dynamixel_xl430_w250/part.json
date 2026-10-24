@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "id": "servo_dynamixel_xl430_w250",
+  "name": "Dynamixel XL430-W250",
+  "category": "Servos",
+  "units": "mm",
+  "description": "Dynamixel XL430-W250. Origin on the horn axis at the front face, +Z towards the horn, long side along Y. Horn disc is the rotating `output` body.",
+  "dims_status": {
+    "overall_size": "datasheet (28.5×46.5×34 mm)",
+    "shaft_offset": "estimate – verify",
+    "horn": "estimate – verify",
+    "mass_torque_speed": "datasheet (e-Manual)"
+  },
+  "sources": [
+    {
+      "title": "ROBOTIS e-Manual XL430-W250",
+      "url": "https://emanual.robotis.com/docs/en/dxl/x/xl430-w250/"
+    },
+    {
+      "title": "ServoDatabase XL430-W250-T",
+      "url": "https://servodatabase.com/servo/dynamixel/xl430-w250-t"
+    }
+  ],
+  "bodies": [
+    {
+      "name": "case",
+      "mesh": "case.stl",
+      "color": "#4b525e",
+      "mass_kg": 0.0512,
+      "collision": "mesh",
+      "connectors": [
+        {
+          "name": "front_face",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "front face around the horn"
+        },
+        {
+          "name": "back_face",
+          "pos_mm": [
+            0,
+            8.75,
+            -34
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "side_left",
+          "pos_mm": [
+            -14.25,
+            8.75,
+            -17
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "side_right",
+          "pos_mm": [
+            14.25,
+            8.75,
+            -17
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "end_top",
+          "pos_mm": [
+            0,
+            32,
+            -17
+          ],
+          "normal": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "name": "end_bottom",
+          "pos_mm": [
+            0,
+            -14.5,
+            -17
+          ],
+          "normal": [
+            0,
+            -1,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "name": "output",
+      "mesh": "output.stl",
+      "parent": "case",
+      "color": "#e3e6ea",
+      "mass_kg": 0.006,
+      "collision": "none",
+      "joint": {
+        "type": "hinge",
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "frame_mm": [
+          0,
+          0,
+          0
+        ]
+      },
+      "servo": {
+        "preset": "xl430_w250"
+      },
+      "connectors": [
+        {
+          "name": "output_top",
+          "pos_mm": [
+            0,
+            0,
+            3
+          ],
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "note": "horn face – mount links here"
+        },
+        {
+          "name": "output_base",
+          "pos_mm": [
+            0,
+            0,
+            0
+          ],
+          "normal": [
+            0,
+            0,
+            -1
+          ]
+        }
+      ]
+    }
+  ]
+}

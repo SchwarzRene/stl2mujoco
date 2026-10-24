@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "convert": "node cli/convert.mjs"
+    "convert": "node cli/convert.mjs",
+    "parts": "node tools/standard-parts.mjs",
+    "parts:index": "node tools/standard-parts.mjs --index"
   },
   "dependencies": {
     "jszip": "3.10.1",
