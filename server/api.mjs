@@ -24,6 +24,10 @@ const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'applic
 
 export function createApi({ partsRoot, jobsRoot = join(tmpdir(), 's2m-jobs') }) {
   const jobs = new Map();
+  const TTL = 24 * 3600 * 1000;
+  // uploaded datasheets and generated meshes must not pile up in the temp folder
+  const sweep = () => { for (const [id, j] of jobs) if (j.state !== 'running' && Date.now() - j.createdAt > TTL) { if (j.dir) rmSync(j.dir, { recursive: true, force: true }); jobs.delete(id); } };
+  setInterval(sweep, 3600 * 1000).unref();
   let statusCache = null;
   const status = () => { if (!statusCache || Date.now() - statusCache.t > 15000) statusCache = { t: Date.now(), v: claudeStatus() }; return statusCache.v; };
 

@@ -1,5 +1,5 @@
 // Headless Claude Code runner for datasheet imports.
-// Safety: the session runs in a throw-away directory, may only Read/Glob/Write inside it (no shell, no web,
+// Safety: the session runs in a throw-away directory, may only Read/Glob/Write inside it (--restricted; no shell, no web,
 // no MCP, no user settings), is budget- and time-limited, and its only deliverable is `out/spec.json`,
 // which the (trusted) server validates and turns into meshes. Datasheet text is treated as untrusted data.
 import { spawn, spawnSync } from 'node:child_process';
@@ -90,6 +90,7 @@ RULES
 export function runClaude({ cwd, prompt, onEvent, timeoutMs = 300000, maxBudgetUsd = Number(process.env.S2M_CLAUDE_BUDGET ?? 1.5) }) {
   const args = [
     '-p', prompt, '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
+    '--restricted', // confines the file tools to the job directory, ignores user/project settings (verified against a canary file)
     '--tools', 'Read,Write,Glob', '--allowedTools', 'Read', 'Write', 'Glob', '--permission-mode', 'dontAsk',
     '--disallowedTools', 'Bash', 'WebFetch', 'WebSearch', 'Task', '--strict-mcp-config', '--disable-slash-commands',
     '--setting-sources', '', '--max-turns', '16', '--max-budget-usd', String(maxBudgetUsd),

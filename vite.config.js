@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { resolve, join } from 'node:path';
+import { resolve, join, sep } from 'node:path';
 import { createReadStream, existsSync, statSync, cpSync } from 'node:fs';
 import { createApi } from './server/api.mjs';
 
@@ -7,7 +7,7 @@ import { createApi } from './server/api.mjs';
 const root = resolve('standard_parts');
 const serve = (req, res, next) => {
   const p = join(root, decodeURIComponent((req.url || '/').split('?')[0]));
-  if (!p.startsWith(root) || !existsSync(p) || !statSync(p).isFile()) return next();
+  if (!p.startsWith(root + sep) || !existsSync(p) || !statSync(p).isFile()) return next();
   res.setHeader('Content-Type', p.endsWith('.json') ? 'application/json' : 'application/octet-stream');
   createReadStream(p).pipe(res);
 };

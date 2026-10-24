@@ -7,6 +7,7 @@ const arg = (n) => a[a.indexOf(n) + 1];
 const prompt = arg('-p');
 const fail = (m) => { console.log(JSON.stringify({ type: 'result', is_error: true, result: m })); process.exit(1); };
 // safety contract of the runner
+if (!a.includes('--restricted')) fail('file tools are not confined to the job directory');
 if (arg('--tools') !== 'Read,Write,Glob') fail('tools not restricted');
 const dis = a.slice(a.indexOf('--disallowedTools') + 1, a.indexOf('--strict-mcp-config'));
 for (const t of ['Bash', 'WebFetch', 'WebSearch']) if (!dis.includes(t)) fail(`${t} not disallowed`);
