@@ -12,8 +12,10 @@ function snapshot(project) {
   const parts = Object.values(project.parts);
   const nodesJson = JSON.stringify(project.nodes), settingsJson = JSON.stringify(project.settings);
   const sig = parts.map((p) => `${p.id}:${meshId(p.positions)}:${p.unitScale}:${p.name}`).join('|');
-  return { name: project.name, nodesJson, settingsJson, parts: parts.map((p) => ({ obj: p, positions: p.positions, stats: p.stats, bbox: p.bbox })), key: `${project.name}\n${settingsJson}\n${sig}\n${nodesJson}` };
+  return { name: project.name, nodesJson, settingsJson, sig, parts: parts.map((p) => ({ obj: p, positions: p.positions, stats: p.stats, bbox: p.bbox })) };
 }
+// compare the pieces directly: a concatenated key would keep a second full copy of the JSON in every snapshot
+const same = (a, b) => a.name === b.name && a.sig === b.sig && a.settingsJson === b.settingsJson && a.nodesJson === b.nodesJson;
 
 function restore(project, s) {
   project.name = s.name;
@@ -36,7 +38,7 @@ export class History {
   /** Record the changes made since the last flush as one undo step. Returns true if there were any. */
   flush() {
     const cur = snapshot(this.getProject());
-    if (cur.key === this.base.key) return false;
+    if (same(cur, this.base)) return false;
     this.undoStack.push(this.base);
     if (this.undoStack.length > this.limit) this.undoStack.shift();
     this.redoStack = []; this.base = cur; this.onChange?.();
