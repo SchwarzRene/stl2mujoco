@@ -11,8 +11,9 @@ import { nodeInertial } from './core/mjcf.js';
 import { saveProjectZip, loadProjectZip, exportMujocoZip } from './core/io.js';
 import { SERVO_SPECS } from './core/servo-specs.js';
 import { newServoState, deriveServo, applyServo } from './core/servo.js';
-import { reapplyMate } from './core/mates.js';
+import { reapplyMate, addConnector, applyMate } from './core/mates.js';
 import { Quaternion } from 'three';
+import { refreshPart } from './core/refresh.js';
 import { createAssembler } from './ui/assemble.js';
 import { initLibrary, renderLibrary } from './ui/library-panel.js';
 
@@ -57,13 +58,14 @@ const node = () => app.project.nodes[app.selected];
 const UNITS = { mm: 0.001, cm: 0.01, m: 1, inch: 0.0254 };
 let importUnit = 'mm';
 
-async function importFiles(files) {
+async function importFiles(files, handles = []) {
   const p = app.project;
-  for (const f of files) {
+  for (const [fi, f] of files.entries()) {
     try {
       const positions = parseSTL(await f.arrayBuffer());
       const name = f.name.replace(/\.stl$/i, '');
       const part = addPart(p, { name, positions, unitScale: UNITS[importUnit] });
+      part.handle = handles[fi] ?? null; // lets “Refresh part” re-read the file without a dialog (Chromium)
       const parent = node()?.id ?? null;
       const first = Object.keys(p.nodes).length === 0;
       const frame = parent ? undefined : { pos: [0, 0, 0], quat: [0, 0, 0, 1] };
@@ -73,6 +75,49 @@ async function importFiles(files) {
     } catch (e) { flash(`Could not import ${f.name}: ${e.message}`); }
   }
   structural(true); viewport.frameAll();
+}
+
+async function importClick() {
+  if (window.showOpenFilePicker) { // keeps file handles so parts can be refreshed from the same file later
+    try {
+      const hs = await window.showOpenFilePicker({ multiple: true, types: [{ description: 'STL mesh', accept: { 'model/stl': ['.stl'], 'application/octet-stream': ['.stl'] } }] });
+      return importFiles(await Promise.all(hs.map((x) => x.getFile())), hs);
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  pickFiles('.stl', true, importFiles);
+}
+
+async function refreshFromFile(partId) {
+  const part = app.project.parts[partId];
+  try {
+    let file;
+    if (part.handle) {
+      if ((await part.handle.queryPermission?.({ mode: 'read' })) !== 'granted') await part.handle.requestPermission?.({ mode: 'read' });
+      file = await part.handle.getFile();
+    } else file = (await new Promise((res) => pickFiles('.stl', false, res)))[0];
+    if (!file) return;
+    const rep = refreshPart(app.project, partId, parseSTL(await file.arrayBuffer()));
+    app.refreshReport = rep;
+    const bad = rep.items.filter((i) => i.status === 'unmatched').length;
+    flash(`Refreshed “${part.name}”: ${rep.items.length - bad}/${rep.items.length} connectors found again, ${rep.resnapped.length} mates re-snapped${bad ? `, ${bad} NOT found – check the report` : ''}.`);
+    structural(true);
+  } catch (e) { flash(`Refresh failed: ${e.message}`); }
+}
+
+function refreshSection(n) {
+  const part = app.project.parts[n.part];
+  if (!part || n.library) return [];
+  const sz = [0, 1, 2].map((a) => ((part.bbox.max[a] - part.bbox.min[a]) * part.unitScale * 1000).toFixed(1));
+  const rep = app.refreshReport?.part === part.name ? app.refreshReport : null;
+  const out = [h('h3', {}, 'Part file'), h('div', { class: 'stat' }, `${part.name} · ${sz.join(' × ')} mm · ${part.stats.triangles.toLocaleString()} triangles`),
+    h('div', { class: 'btns' }, h('button', { class: 'primary', title: 'Reload the changed STL: connectors are found again by hole size/direction and attached parts are re-snapped', onclick: () => refreshFromFile(part.id) }, part.handle ? '↻ Refresh from linked file' : '↻ Refresh from STL…')),
+    h('div', { class: 'help' }, part.handle ? 'Linked to the file you imported – edit it in CAD, re-export, click refresh.' : 'Choose the re-exported STL. Holes keep their offset from the nearest end of the part, so a longer link keeps both hole patterns where they belong.')];
+  if (rep) {
+    out.push(h('div', { class: 'stat' }, `Last refresh: ${rep.items.length} connectors, ${rep.resnapped.length} mates re-snapped`));
+    for (const i of rep.items) out.push(h('div', { class: i.status === 'unmatched' ? 'note' : 'stat' }, `${i.status === 'matched' ? '✔' : i.status === 'predicted' ? '≈' : '✖'} ${i.node} › ${i.connector}${i.movedMm ? ` (moved ${i.movedMm} mm)` : ''}`));
+    for (const e of rep.errors) out.push(h('div', { class: 'note' }, `⚠ ${e}`));
+  }
+  return out;
 }
 
 function pickFiles(accept, multiple, cb) {
@@ -92,7 +137,7 @@ function renderToolbar() {
     h('span', { class: 'title' }, 'stl2', h('span', {}, 'mujoco')),
     h('select', { title: 'Unit of the STL files you import', onchange: (e) => (importUnit = e.target.value) },
       Object.keys(UNITS).map((u) => h('option', { value: u, selected: u === importUnit }, `STL in ${u}`))),
-    h('button', { class: 'primary', onclick: () => pickFiles('.stl', true, importFiles) }, '＋ Import STL parts'),
+    h('button', { class: 'primary', onclick: importClick }, '＋ Import STL parts'),
     h('button', { class: 'primary', title: 'Attach one part to another like a CAD assembly mate', onclick: () => assembler.start() }, '⚙ Mate parts'),
     h('button', { onclick: () => { const d = addPrimitive(app.project, 'box', [0.05, 0.05, 0.05]); addPrimitiveNode(d); } }, '＋ Box'),
     h('button', { onclick: () => { const d = addPrimitive(app.project, 'cylinder', [0.02, 0.05]); addPrimitiveNode(d); } }, '＋ Cylinder'),
@@ -258,7 +303,7 @@ function renderRight() {
   }
 
   if (n.servo) sec.push(...servoSection(n));
-  sec.push(...connectorsSection(n), ...infoSection(n));
+  sec.push(...refreshSection(n), ...connectorsSection(n), ...infoSection(n));
   const mm3 = (key, get) => h('div', { class: 'row three' }, h('label', {}, get.label), get.v.map((x, k) => numInput(x, (v) => { get.v[k] = v; }, 5)));
   const fam = familyMembers(p, n.id);
   sec.push(h('h3', {}, 'Copy / paste'),
@@ -365,4 +410,4 @@ addEventListener('keydown', (e) => {
 
 $('#hint').textContent = HINT;
 renderToolbar(); structural(false); initLibrary(renderLeft);
-window.s2m = { app, viewport, importFiles, structural, select, assembler }; // handy for debugging / tests
+window.s2m = { app, viewport, importFiles, structural, select, assembler, core: { addConnector, applyMate } }; // handy for debugging / tests
