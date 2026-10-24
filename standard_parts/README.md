@@ -1,6 +1,14 @@
-# Standard parts
+# 📚 Standard parts
+
+⬅️ [Main README](../README.md)
 
 Ready-made parts for the editor (**Parts library** tab). Each part is a folder with a `part.json` and its STL files.
+
+| 🆔 Servo id (use in `robot.json` → `servoModel.library`) | |
+|---|---|
+| `servo_mg996r` | 💪 13 kg·cm class |
+| `servo_sg90` · `servo_mg90s` | 🪶 micro |
+| `servo_dynamixel_xl430_w250` · `servo_dynamixel_ax12a` | 🔩 block servos |
 
 ```
 standard_parts/
