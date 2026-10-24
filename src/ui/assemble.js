@@ -5,6 +5,7 @@ import { addConnector } from '../core/mates.js';
 import { applyMate, defaultMate, MATE_TYPES } from '../core/mates.js';
 import { isDescendant } from '../core/project.js';
 
+const zAxis = (q) => { const [x, y, z, w] = q; return [2 * (x * z + w * y), 2 * (y * z - w * x), 1 - 2 * (x * x + y * y)]; };
 const KIND = { circle: 'hole/boss centre', face: 'face centre', vertex: 'vertex', 'edge-mid': 'edge midpoint', point: 'point' };
 
 export function createAssembler({ app, viewport, el, h, flash, refresh }) {
@@ -23,7 +24,8 @@ export function createAssembler({ app, viewport, el, h, flash, refresh }) {
   function connectorFromSnap(nodeId, s) {
     const n = node(nodeId), part = app.project.parts[n.part], k = part.unitScale;
     const pos = s.pos.map((v) => v * k);
-    const dup = n.connectors.find((c) => Math.hypot(c.pos[0] - pos[0], c.pos[1] - pos[1], c.pos[2] - pos[2]) < 2e-4);
+    const nrm = s.normal, dup = n.connectors.find((c) => Math.hypot(c.pos[0] - pos[0], c.pos[1] - pos[1], c.pos[2] - pos[2]) < 2e-4
+      && Math.abs(zAxis(c.quat).reduce((t, v, i) => t + v * nrm[i], 0)) > 0.99);
     if (dup) return { node: nodeId, id: dup.id };
     const nm = `${s.kind === 'circle' ? 'hole' : s.kind === 'edge-mid' ? 'edge' : s.kind}_${n.connectors.length + 1}`;
     return { node: nodeId, id: addConnector(n, { name: nm, pos, normal: s.normal }).id };

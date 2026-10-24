@@ -47,12 +47,12 @@ describe('standard parts library', () => {
     expect((w[14] - bottom[14]) * 1000).toBeCloseTo(42.9, 3);
   });
 
-  it('exported servo tracks a command within datasheet torque and speed limits (MuJoCo)', async () => {
+  it.each(['servo_mg996r', 'servo_sg90', 'servo_mg90s', 'servo_dynamixel_xl430_w250', 'servo_dynamixel_ax12a'])('exported %s tracks a command within datasheet torque and speed limits (MuJoCo)', async (id) => {
     const p = newProject('servo_test'); p.settings.gravity = [0, 0, 0]; p.settings.floor = false;
     const idx = await loadIndex(reader);
-    await instantiate(p, reader, idx.find((e) => e.id === 'servo_mg996r'));
+    const [, out] = await instantiate(p, reader, idx.find((e) => e.id === id));
     const info = run(buildMJCF(p), 'tests/servo_step.py');
-    const spec = deriveServo({ ...SERVO_SPECS.mg996r, voltage: '6.0', voltages: SERVO_SPECS.mg996r.voltages });
+    const spec = deriveServo(out.servo);
     expect(info.stall_torque).toBeCloseTo(spec.stall_torque, 6);
     expect(Math.abs(info.step.final - info.step.target)).toBeLessThan(0.02);      // < ~1°
     expect(info.step.max_speed).toBeLessThan(spec.noload_speed * 1.02);             // never faster than no-load speed
@@ -61,6 +61,15 @@ describe('standard parts library', () => {
     expect(info.hold_deflection).toBeGreaterThan(0.0);
     expect(info.hold_deflection).toBeLessThan(0.15);                                // holds 80 % of stall torque
     expect(info.overload_position).toBeGreaterThan(info.range[1] * 0.99);          // 150 % of stall is overpowered
+  });
+
+  it('numbers library instances by instance, not by body', async () => {
+    const p = newProject('names');
+    const idx = await loadIndex(reader);
+    const e = idx.find((x) => x.id === 'servo_mg996r');
+    await instantiate(p, reader, e, { count: 0 });
+    const count = new Set(Object.values(p.nodes).filter((n) => n.library?.id === e.id).map((n) => n.library.group)).size;
+    expect(count).toBe(1);
   });
 
   it('every standard part instantiates, exports and loads in MuJoCo with positive mass', async () => {

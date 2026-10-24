@@ -310,7 +310,10 @@ function infoSection(n) {
   if (n.library) {
     out.push(h('h3', {}, 'Library part'));
     for (const [k, v] of Object.entries(n.library.status ?? {})) out.push(h('div', { class: /verify|estimate/.test(v) ? 'note' : 'stat' }, `${k.replace(/_/g, ' ')}: ${v}`));
-    for (const src of n.library.sources ?? []) out.push(h('div', { class: 'stat' }, h('a', { href: src.url, target: '_blank', rel: 'noopener', style: 'color:var(--acc)' }, src.title)));
+    for (const src of n.library.sources ?? []) {
+      let ok = false; try { ok = ['http:', 'https:'].includes(new URL(src.url).protocol); } catch { /* not a URL */ }
+      out.push(h('div', { class: 'stat' }, ok ? h('a', { href: src.url, target: '_blank', rel: 'noopener noreferrer', style: 'color:var(--acc)' }, src.title) : String(src.title)));
+    }
   }
   return out;
 }

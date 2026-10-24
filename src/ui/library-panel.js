@@ -3,7 +3,7 @@ import { fetchReader, loadIndex, instantiate } from '../core/library.js';
 import { bbox } from '../core/mesh.js';
 import { poseToMatrix } from '../core/project.js';
 
-const reader = fetchReader('/standard_parts');
+const reader = fetchReader(`${import.meta.env.BASE_URL}standard_parts`);
 let index = null, error = '';
 const open = new Set(['Servos']);
 
@@ -38,7 +38,7 @@ export function renderLibrary({ h, app, onAdded, flash }) {
   async function add(entry) {
     try {
       const mx = robotMaxX(app.project);
-      const count = Object.values(app.project.nodes).filter((n) => n.library?.id === entry.id && n.library.body === n.library.body).length;
+      const count = new Set(Object.values(app.project.nodes).filter((n) => n.library?.id === entry.id).map((n) => n.library.group)).size;
       const at = new Matrix4().makeTranslation(mx == null ? 0 : mx + 0.06, 0, 0);
       const nodes = await instantiate(app.project, reader, entry, { at, count: count ? count + 1 : 0 });
       onAdded(nodes);

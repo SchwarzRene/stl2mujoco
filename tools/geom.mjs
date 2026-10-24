@@ -1,23 +1,13 @@
 // Small solid-modelling helpers for the standard-parts generator (millimetres, Z up).
 // Solids are built from watertight extrusions that are stacked along Z without overlapping.
 import * as THREE from 'three';
-import { massProperties } from '../src/core/mesh.js';
+import { massProperties, orientOutward } from '../src/core/mesh.js';
 
 function flat(geom) {
   const g = geom.index ? geom.toNonIndexed() : geom;
   return Float32Array.from(g.getAttribute('position').array);
 }
-/** Make triangle winding point outwards (flip when the signed volume is negative). */
-export function orient(p) {
-  const q = Float32Array.from(p);
-  // massProperties flips sign internally, so test the sign with a plain signed volume.
-  let v = 0;
-  for (let i = 0; i < q.length; i += 9) {
-    v += q[i] * (q[i + 4] * q[i + 8] - q[i + 5] * q[i + 7]) - q[i + 1] * (q[i + 3] * q[i + 8] - q[i + 5] * q[i + 6]) + q[i + 2] * (q[i + 3] * q[i + 7] - q[i + 4] * q[i + 6]);
-  }
-  if (v < 0) for (let i = 0; i < q.length; i += 9) for (let k = 0; k < 3; k++) { const t = q[i + 3 + k]; q[i + 3 + k] = q[i + 6 + k]; q[i + 6 + k] = t; }
-  return q;
-}
+export const orient = orientOutward;
 
 export const circlePath = (cx, cy, r) => { const p = new THREE.Path(); p.absarc(cx, cy, r, 0, Math.PI * 2, true); return p; };
 export function polyPath(points) { const p = new THREE.Path(points.map(([x, y]) => new THREE.Vector2(x, y))); p.closePath(); return p; }
