@@ -62,7 +62,7 @@ function hobbyServo(key, p) {
     description: `${spec.name} hobby servo. Origin on the output shaft axis at the case top plane, +Z towards the horn. Case is rigid; the \`output\` body is the rotating shaft with a position actuator whose torque/speed come from the datasheet.`,
     dims_status: p.status, sources: p.sources,
     bodies: [
-      { name: 'case', mesh: 'case.stl', color: '#2b2d33', mass_kg: r4(spec.mass - p.outMass), collision: 'mesh',
+      { name: 'case', mesh: 'case.stl', color: '#5a606b', mass_kg: r4(spec.mass - p.outMass), collision: 'mesh',
         connectors: [
           conn('ear_hole_1_top', [cx - p.earSpacing / 2, 0, p.earTop], [0, 0, 1], 'mounting hole, top side of the ear'),
           conn('ear_hole_2_top', [cx + p.earSpacing / 2, 0, p.earTop], [0, 0, 1]),
@@ -73,7 +73,7 @@ function hobbyServo(key, p) {
           conn('side_back', [x0, 0, (earBottom - p.H) / 2], [-1, 0, 0]),
           conn('side_front', [x1, 0, (earBottom - p.H) / 2], [1, 0, 0]),
         ] },
-      { name: 'output', mesh: 'output.stl', parent: 'case', color: '#d9d9d9', mass_kg: p.outMass, collision: 'none',
+      { name: 'output', mesh: 'output.stl', parent: 'case', color: '#e3e6ea', mass_kg: p.outMass, collision: 'none',
         joint: { type: 'hinge', axis: [0, 0, 1], frame_mm: [0, 0, 0] },
         servo: { preset: key },
         connectors: [conn('output_top', [0, 0, p.splineTop], [0, 0, 1], 'top of the output spline – mount the horn / bracket here'), conn('output_base', [0, 0, p.bossH], [0, 0, -1])] },
@@ -104,11 +104,11 @@ function dynamixel(key, p) {
     description: `${spec.name}. Origin on the horn axis at the front face, +Z towards the horn, long side along Y. Horn disc is the rotating \`output\` body.`,
     dims_status: p.status, sources: p.sources,
     bodies: [
-      { name: 'case', mesh: 'case.stl', color: '#1f2227', mass_kg: r4(spec.mass - p.outMass), collision: 'mesh',
+      { name: 'case', mesh: 'case.stl', color: '#4b525e', mass_kg: r4(spec.mass - p.outMass), collision: 'mesh',
         connectors: [conn('front_face', [0, 0, 0], [0, 0, 1], 'front face around the horn'), conn('back_face', [0, (y0 + y1) / 2, -p.D], [0, 0, -1]),
           conn('side_left', [-hx, (y0 + y1) / 2, -p.D / 2], [-1, 0, 0]), conn('side_right', [hx, (y0 + y1) / 2, -p.D / 2], [1, 0, 0]),
           conn('end_top', [0, y1, -p.D / 2], [0, 1, 0]), conn('end_bottom', [0, y0, -p.D / 2], [0, -1, 0])] },
-      { name: 'output', mesh: 'output.stl', parent: 'case', color: '#c9ccd1', mass_kg: p.outMass, collision: 'none',
+      { name: 'output', mesh: 'output.stl', parent: 'case', color: '#e3e6ea', mass_kg: p.outMass, collision: 'none',
         joint: { type: 'hinge', axis: [0, 0, 1], frame_mm: [0, 0, 0] }, servo: { preset: key },
         connectors: [conn('output_top', [0, 0, p.hornT], [0, 0, 1], 'horn face – mount links here'), conn('output_base', [0, 0, 0], [0, 0, -1])] },
     ],

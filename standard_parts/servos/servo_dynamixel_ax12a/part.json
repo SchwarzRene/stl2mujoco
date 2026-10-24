@@ -25,7 +25,7 @@
     {
       "name": "case",
       "mesh": "case.stl",
-      "color": "#1f2227",
+      "color": "#4b525e",
       "mass_kg": 0.0486,
       "collision": "mesh",
       "connectors": [
@@ -114,7 +114,7 @@
       "name": "output",
       "mesh": "output.stl",
       "parent": "case",
-      "color": "#c9ccd1",
+      "color": "#e3e6ea",
       "mass_kg": 0.006,
       "collision": "none",
       "joint": {
